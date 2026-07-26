@@ -1,25 +1,17 @@
 'use client';
 
 import ControllerConnector from '@cartridge/connector/controller';
-import { mainnet } from '@starknet-react/chains';
 import { cartridge, jsonRpcProvider, StarknetConfig } from '@starknet-react/core';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { constants } from 'starknet';
+import { PROFILE } from '@/dojo/config';
 
 //
-// The chain layer: Starknet mainnet only, connected through the Cartridge Controller.
+// The chain layer: one Starknet network, connected through the Cartridge Controller.
 //
-// Ported from the Controller reference app
-// (/Users/roger/Dev/Dojo/controller/examples/minimal). Sepolia/Katana are deliberately
-// absent — add a chain here (and to `CHAINS`/`provider` below) when one is needed.
+// Which network is `PROFILE` (`@/dojo/config`) — mainnet by default, sepolia via
+// `NEXT_PUBLIC_PROFILE`. Nothing chain-dependent is hardcoded here.
 //
-const RPC_URL =
-  process.env.NEXT_PUBLIC_RPC_MAINNET ?? 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_9';
-
-// Our own Torii indexer — backs the Controller's inventory/collection views.
-const TORII_URL =
-  process.env.NEXT_PUBLIC_TORII_URL ?? 'https://pistols-solitaire-mainnet.up.railway.app';
 
 //
 // Created at module scope on purpose: the connector reuses `window.starknet_controller`
@@ -27,14 +19,17 @@ const TORII_URL =
 // Every `window` access inside it is guarded, so importing this module during SSR is safe.
 //
 export const controllerConnector = new ControllerConnector({
-  chains: [{ rpcUrl: RPC_URL }],
-  defaultChainId: constants.StarknetChainId.SN_MAIN,
-  // Cartridge preset: theme + policies published for the Pistols world.
+  chains: [{ rpcUrl: PROFILE.rpcUrl }],
+  defaultChainId: PROFILE.chainId,
+  // Cartridge preset: theme + policies published for the Pistols world. No `policies` of
+  // our own yet — those need a deployed Dojo world for this game.
   preset: 'pistols',
-  toriiUrl: TORII_URL,
+  namespace: PROFILE.namespace,
+  // Our own Torii indexer — backs the Controller's inventory/collection views.
+  toriiUrl: PROFILE.toriiUrl,
 });
 
-const provider = jsonRpcProvider({ rpc: () => ({ nodeUrl: RPC_URL }) });
+const provider = jsonRpcProvider({ rpc: () => ({ nodeUrl: PROFILE.rpcUrl }) });
 
 //
 // `queryClient` is the app's single shared client (see specs/NEXTJS_DATA_FLOW.md §0):
@@ -51,7 +46,7 @@ export function StarknetProvider({
   return (
     <StarknetConfig
       autoConnect
-      chains={[mainnet]}
+      chains={[PROFILE.chain]}
       connectors={[controllerConnector]}
       explorer={cartridge}
       provider={provider}

@@ -19,7 +19,7 @@ This repo (`underware-gg/pistols-solitaire`) is an early scaffold. Two areas exi
 - the **Torii indexer deployment** (`contracts.json`, `railway.toml`, `torii/`) — see below
 - the **pnpm/Turbo workspace** with a Next.js `client/` — see below
 
-There is still **no Cairo/Dojo code** (no `Scarb.toml`, no `dojo/`, no SDK package) and **no tests anywhere** — do not assume a test command exists. Verify the actual scripts in `package.json` before suggesting a command, and update this section as areas land.
+There is still **no Cairo/Dojo code of our own** (no `Scarb.toml`, no `dojo/`, no SDK package) and **no tests anywhere** — do not assume a test command exists. The client reads the *existing* Pistols world through `@underware/pistols-sdk` and our Torii; it deploys nothing. Verify the actual scripts in `package.json` before suggesting a command, and update this section as areas land.
 
 ## Workspace (`pnpm-workspace.yaml`, `turbo.json`)
 
@@ -38,6 +38,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind 4, at `http:/
 client/src/
   app/            ONLY what Next.js requires: layout.tsx, page.tsx, api/, actions/
   components/     everything else — page components, providers/, ui/ (cva primitives)
+  dojo/           chain profiles: profiles.ts (the table), config.ts (PROFILE), torii.ts
   hooks/          use-controller.ts (chain), plus:
   hooks/queries/  one react-query hook per API query route
   hooks/mutations/ one hook per server action, over useActionMutation
@@ -61,22 +62,54 @@ client/src/
 - **Next.js owns `client/tsconfig.json`** — it rewrites the file on `next build`. It's excluded from Biome; don't hand-format it or fight the rewrite.
 - `next-env.d.ts` is generated and gitignored.
 
-## Chain layer (`client/src/components/providers/`)
+## Chain profiles (`client/src/dojo/`)
 
-Starknet **mainnet only**, connected through the **Cartridge Controller** — ported from `/Users/roger/Dev/Dojo/controller/examples/minimal`. Version policy: match that example's majors (`starknet` 8, `@starknet-react/*` 5) and track the latest `0.13.x` Controller. All versions in the root `catalog:`.
+One network at a time, selected by profile — **ported from `/Users/roger/Dev/Realms/LORE/packages/client-sn/src/dojo/`**, which is the reference for this layer. Read those files when a rule here needs context.
 
-- `providers/StarknetProvider.tsx` — the `ControllerConnector` is built **once at module scope** (it reuses `window.starknet_controller` and warns if constructed twice) and `StarknetConfig` is mainnet-only. Every `window` access inside the controller is guarded, so this module SSRs fine — no `dynamic(…, { ssr: false })` needed, and `/` still prerenders static.
-- `providers/providers.tsx` — `Providers`: creates the one `QueryClient` and hands it to `StarknetConfig`, which mounts the `QueryClientProvider` itself. One provider, one cache, shared with the app's own queries (`specs/NEXTJS_DATA_FLOW.md` §0).
-- `hooks/use-controller.ts` — the only thing components use: `connect` / `disconnect` / `openController(tab)` / `username` / `address` / `isConnected`. Composes bare `@starknet-react/core` hooks; never wraps them in another cache.
-- Config via optional env vars, with mainnet defaults baked in: `NEXT_PUBLIC_RPC_MAINNET`, `NEXT_PUBLIC_TORII_URL` (defaults to the Railway Torii, `https://pistols-solitaire-mainnet.up.railway.app`). Every var and its default is in `client/.env.example`; `torii/.env.example` covers the indexer.
-- `preset: 'pistols'` gives the Controller the Pistols theme. No `policies`/`namespace` yet — those need the deployed Dojo world. Add them when the contracts land.
+- **`profiles.ts`** — the profile table. Only `mainnet` and `sepolia` exist (LORE also has a local Katana; we don't). Each profile carries `chain` / `chainName` / `rpcUrl` / `toriiUrl` / `manifest` / `namespace`, and `getProfileConfig()` derives `chainId`, `contractAddresses` and `tokens` from it. **A profile holds a single `manifest`** — LORE splits every field into `{ starknet, appchain }` because it bridges to an appchain; there is no appchain here, so never reintroduce that shape.
+- **`config.ts`** — `PROFILE`, the active profile, plus `PROFILE_NAME`. **Everything chain-dependent imports `PROFILE`; nothing else reads `process.env` for chain config.** `NEXT_PUBLIC_PROFILE` picks the network (default `mainnet`), `NEXT_PUBLIC_RPC_URL` / `NEXT_PUBLIC_TORII_URL` override one URL each. Every var and its default is in `client/.env.example`; `torii/.env.example` covers the indexer.
+- **`torii.ts`** — `getToriiClient()`, one lazily-created `ToriiClient`. The **dynamic `import()` is load-bearing, keep it inside the factory** (and the `ToriiClient` type import `type`-only): `@dojoengine/torii-client` re-exports `@dojoengine/torii-wasm`, whose module body instantiates a **2.7MB WASM binary at import time**. A static import puts it in the initial page chunk and every visitor downloads it before connecting — measured both ways, `…dojo_wasm_bg….wasm` is requested on first paint with a static import and not at all with the dynamic one. (It is *not* about SSR: a static import still builds and `/` still prerenders static.)
+
+### Contract addresses — two sources, never hand-typed
+
+`PROFILE.contractAddresses` is keyed by **game**, and `PROFILE.tokens` is the flat list of every ERC-20/ERC-721 across games. Neither is ever hand-typed, and there is **no hardcoded list of token names** — that drifts.
+
+- **Which contracts are tokens, of which type, for which game** — all from **`contracts.json` at the repo root** (imported via the `@root/*` tsconfig alias), filtered to `enabled: true`. That is the same file the Torii indexer reads, so `PROFILE.tokens` is exactly what Torii has balances for. Adding a game's tokens = edit `contracts.json`, redeploy the indexer. Anything `enabled: false` (`realms/lords`, the `world` entries) never reaches the client.
+- **Addresses** — for the `pistols` game from the Dojo manifests in **`@underware/pistols-sdk`** (`/pistols/config` getters), which stay authoritative for the world's own deployments; for every other game from `contracts.json`, which is the only place they exist.
+- `contractAddresses.pistols` additionally holds the **game contracts** (world, game, game_loop, bank, admin, vrf, …) from the manifest — they are an address registry, not tokens, so they are never queried for balances. Addresses a network never deployed resolve to `0x0` and are dropped.
+- `pistols/lords` is a deliberate loose end: the manifest resolves it (so it is in `contractAddresses.pistols`) but `contracts.json` lists LORDS under the disabled `realms` game, so it is **not** in `PROFILE.tokens` and no balance is shown. Left for later on purpose — don't "fix" it by hardcoding it back in.
+
+### Providers (`client/src/components/providers/`)
+
+Connected through the **Cartridge Controller**; connector versions match `/Users/roger/Dev/Dojo/controller/examples/minimal` (`starknet` 8, `@starknet-react/*` 5, latest `0.13.x` Controller). All versions in the root `catalog:`.
+
+- `StarknetProvider.tsx` — the `ControllerConnector` is built **once at module scope** (it reuses `window.starknet_controller` and warns if constructed twice), from `PROFILE`: `chains`, `defaultChainId`, `namespace`, `toriiUrl`. Every `window` access inside the controller is guarded, so this module SSRs fine — no `dynamic(…, { ssr: false })` needed, and `/` still prerenders static.
+- `providers.tsx` — `Providers`: creates the one `QueryClient` and hands it to `StarknetConfig`, which mounts the `QueryClientProvider` itself. One provider, one cache, shared with the app's own queries (`specs/NEXTJS_DATA_FLOW.md` §0). Wraps children in `TokensProvider`.
+- `TokensProvider.tsx` — cloned from LORE's `tokens-provider.tsx`, widened from its single ERC-721 to every contract in `PROFILE.tokens`. **The app's one Torii subscription**: it pages `getTokenBalances` for the connected account, then streams `onTokenBalanceUpdated`. Components read it through `useTokenBalances()` / `useCoinBalance(game, name)` / `useTokenIds(game, name)` — never a second query layer over it. Torii leaves `token_id` unset for ERC-20s; that is what splits `balances.erc20` from `balances.erc721`.
+- `hooks/use-controller.ts` — the only thing components use for connection: `connect` / `disconnect` / `openController(tab)` / `username` / `address` / `isConnected`. Composes bare `@starknet-react/core` hooks; never wraps them in another cache.
+- `preset: 'pistols'` gives the Controller the Pistols theme and its published policies. No `policies` of our own yet — those need a deployed world for *this* game.
 - `@cartridge/controller/react`'s `ControllerToaster` (and its stylesheet) is deliberately **not** mounted: it's optional, and the one-stylesheet rule means importing package CSS needs a reason. Add it when transaction toasts are wanted.
+- `ControllerOptions.tokens` is **not** set: in `0.13.x` its `Token` type is a fixed union (`eth`/`strk`/`lords`/`usdc`/`usdt`), not arbitrary addresses, so the game's tokens can't be listed in the Controller inventory that way. `toriiUrl` is what surfaces them.
+
+## `@underware/pistols-sdk`
+
+Published on npm (root `catalog:`), sourced from `/Users/roger/Dev/Realms/pistols/sdk`. **It is the resource library for composing Pistols games — reach for it before hand-rolling anything Pistols- or Starknet-shaped.** What we use today:
+
+- `@underware/pistols-sdk/pistols/config` — `NetworkId` / `ChainId` / `NAMESPACE`, `getManifest()`, and the per-contract address getters (`getWorldAddress`, `getFameAddress`, `getDuelTokenAddress`, …). Bundles the mainnet/sepolia/dev manifests, so we don't vendor them.
+- `@underware/pistols-sdk/utils` — `bigintToAddress` (padded lowercase, the form Torii wants), `bigintToHex`, `isPositiveBigint`.
+- `@underware/pistols-sdk/starknet` — `stringToFelt` (chain name → chain id felt), `weiToEthString`.
+
+Notes for working with it:
+
+- **The npm release lags the local checkout** (1.3.2 vs 1.3.10 as of this writing). Getters added locally may not exist in the published build — `getCommunityAddress` is one. Check `node_modules/@underware/pistols-sdk/dist/pistols_config.d.ts` before importing a new symbol.
+- **Don't `link:` the local checkout.** Turbopack refuses to resolve a module whose real path escapes the project root, and every SDK import fails with "Module not found". Use the registry version; bump the catalog when a release lands.
+- Its `/hooks` and `/pistols/dojo` entry points (`useSdkTokenBalances`, `useController`, …) assume the full `@dojoengine/sdk` Dojo context, which we don't mount — we talk to Torii through `torii.ts` instead. Only pull those in if the Dojo context comes with them.
 
 ## Intended stack (not yet present)
 
 `.vscode/settings.json` was carried over from the sibling Pistols projects and reveals what is still expected:
 
-- **Dojo / Cairo** — `cairo1.enableLanguageServer` + `cairo1.enableScarb`; a `dojo/bindings/**` path is excluded from search, implying generated TypeScript bindings from a Dojo world. The Dojo SDK is not wired into the client yet — only the Starknet/Controller layer above is.
+- **Dojo / Cairo** — `cairo1.enableLanguageServer` + `cairo1.enableScarb`; a `dojo/bindings/**` path is excluded from search, implying generated TypeScript bindings from a Dojo world. We read the existing Pistols world; there is no world of our own, so no `@dojoengine/sdk` entity layer yet — only Torii tokens.
 - Indentation: 2 spaces for TS/JS, **4 spaces for Cairo and Python**.
 
 ## Torii indexer (`torii/`)

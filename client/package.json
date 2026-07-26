@@ -16,9 +16,12 @@
   "dependencies": {
     "@cartridge/connector": "catalog:",
     "@cartridge/controller": "catalog:",
+    "@dojoengine/core": "catalog:",
+    "@dojoengine/torii-client": "catalog:",
     "@starknet-react/chains": "catalog:",
     "@starknet-react/core": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@underware/pistols-sdk": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "lucide-react": "catalog:",

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { StarknetProvider } from '@/components/providers/StarknetProvider';
+import { TokensProvider } from '@/components/providers/TokensProvider';
 
 //
 // Client-side providers for the whole app.
@@ -29,7 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <StarknetProvider queryClient={queryClient}>
-      {children}
+      <TokensProvider>{children}</TokensProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{
