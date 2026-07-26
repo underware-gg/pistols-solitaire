@@ -1,0 +1,23 @@
+packages:
+  - "client"
+  # - "torii"
+
+# next.js image optimization
+onlyBuiltDependencies:
+  - sharp
+
+catalog:
+  #--------------------------------
+  # next.js client
+  #
+  next: ^16.2.12
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  "@types/react": ^19.2.17
+  "@types/react-dom": ^19.2.3
+
+  #--------------------------------
+  # misc
+  #
+  "@types/node": ^26.1.1
+  typescript: ^5.9.3

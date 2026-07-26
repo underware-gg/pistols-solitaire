@@ -10,19 +10,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This repo (`underware-gg/pistols-solitaire`) is a **fresh scaffold**. As of the initial commit it contains only `README.md`, `.gitignore` (Node/JS template), and `.vscode/` config — no application code, no `package.json`, no `Scarb.toml`, and therefore **no build, lint, or test commands yet**. Do not assume any exist; check for a manifest before suggesting a command.
+This repo (`underware-gg/pistols-solitaire`) is an early scaffold. Two areas exist:
 
-The one implemented area is the **Torii indexer deployment** (`contracts.json`, `railway.toml`, `torii/`) — see below. There is still no Cairo/Dojo code, no client, no root `package.json`; `torii/package.json` is the only manifest, and it has no dependencies.
+- the **Torii indexer deployment** (`contracts.json`, `railway.toml`, `torii/`) — see below
+- the **pnpm/Turbo workspace** with a Next.js `client/` — see below
 
-When adding tooling, verify the actual scripts in `package.json` / `Scarb.toml` rather than relying on this file, and update this section once they exist.
+There is still **no Cairo/Dojo code** (no `Scarb.toml`, no `dojo/`, no SDK package) and **no tests anywhere** — do not assume a test command exists. Verify the actual scripts in `package.json` before suggesting a command, and update this section as areas land.
 
-## Intended stack (inferred from `.vscode/`, not yet present)
+## Workspace (`pnpm-workspace.yaml`, `turbo.json`)
 
-`.vscode/settings.json` and `launch.json` were carried over from the sibling Pistols projects and reveal the expected shape:
+pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. Members: `client`, `torii`.
+
+- **Shared dep versions live in the `catalog:` block of `pnpm-workspace.yaml`.** Packages reference them as `"next": "catalog:"` — bump the catalog, not the package manifests. Same convention as the reference monorepo.
+- Root scripts delegate to Turbo (`dev`, `build`, `check-types`, `lint`); `format` runs Biome directly over `client`.
+- `torii` is a workspace member but declares no dependencies and no Turbo tasks — its scripts are run from inside `torii/` as before.
+- `onlyBuiltDependencies: [sharp]` in `pnpm-workspace.yaml` — pnpm 10 blocks postinstall scripts by default and Next.js image optimization needs sharp built.
+
+## Client (`client/`)
+
+Next.js 16 (App Router, Turbopack), React 19, TypeScript, at `http://localhost:3000/`. Source under `client/src/app/`; `@/*` maps to `client/src/*`.
+
+- **Next.js owns `client/tsconfig.json`** — it rewrites the file on `next build` (it set `jsx: react-jsx` and added `.next/dev/types/**/*.ts` to `include`). It is therefore excluded from Biome in `biome.json`; don't hand-format it or fight the rewrite.
+- **Biome** for format/lint (matching `.vscode/extensions.json`), config at the root, inherited by `client/biome.json` via `"extends": "//"`. Style follows the reference client: single quotes, no semicolons, 2-space indent, 120 columns.
+- Biome is scoped to `client/` on purpose: the pre-existing `torii/` scripts and `contracts.json` predate it and would produce a large reformat diff. Don't widen the scope without saying so.
+- `next-env.d.ts` is generated and gitignored.
+
+## Intended stack (not yet present)
+
+`.vscode/settings.json` was carried over from the sibling Pistols projects and reveals what is still expected:
 
 - **Dojo / Cairo on Starknet** — `cairo1.enableLanguageServer` + `cairo1.enableScarb`; a `dojo/bindings/**` path is excluded from search, implying generated TypeScript bindings from a Dojo world.
-- **Vite client** at `http://localhost:5173/`, web root `${workspaceRoot}/client` (see `.vscode/launch.json`).
-- **Biome** for format/lint (`.vscode/extensions.json` recommends `biomejs.biome`), not ESLint/Prettier.
 - Indentation: 2 spaces for TS/JS, **4 spaces for Cairo and Python**.
 
 ## Torii indexer (`torii/`)
