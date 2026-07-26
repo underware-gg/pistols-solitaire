@@ -81,9 +81,29 @@ Caveats: `indexing.namespaces` / `indexing.models` filters are **global**, not p
 worlds sharing a namespace name would collide in queries. Torii's top-level `world_address` key is
 not emitted at all — since 1.6.1 the `WORLD:` entries in `indexing.contracts` are the whole story.
 
-The **oldest `block` among enabled contracts** becomes `indexing.world_block`, i.e. where the
-indexer starts scanning. Enabling a contract older than anything already indexed forces a re-sync
-of that gap — expect a long backfill.
+### Start block — the db always wins
+
+The **oldest `block` among enabled contracts** becomes `indexing.world_block`. That value is only a
+**fallback for contracts with no row in the db yet**. A contract already indexed resumes from its own
+stored `head` and can never be pulled backwards by lowering a `block`.
+
+Verified in torii 1.8.16: the engine takes its contract list from the db
+(`SELECT * FROM contracts`), each row's `head` is its cursor, `from = head + 1` and only
+`head IS NULL` falls back to `world_block`; boot-time seeding from `contracts.json` is
+`INSERT OR IGNORE`, so existing rows are untouched.
+
+So, adding a contract older than the current index:
+
+- **the new contract backfills fine** — no row yet, so it starts at `world_block`, now its own block
+- **nothing already indexed re-scans** — lowering `world_block` is a no-op for them
+- **to re-index an existing contract from an earlier block you must wipe its rows** — the volume, or
+  its `contracts` row (see [Add / remove a token](#add--remove-a-token-or-world))
+
+Caveat in 1.8.16: a contract's own `block` never reaches the db on insert (the `head` value is bound
+to a statement that has no `head` column), so a **new** contract starts at the global `world_block`,
+not at its own block. Harmless — just a wider scan — but recheck on a version bump.
+
+Check the live heads any time: `/sql?query=SELECT contract_address, head FROM contracts`.
 
 ## Env
 
@@ -157,9 +177,12 @@ Sepolia is the same steps in a second Railway project; only `NETWORK` differs.
 3. `pnpm check` — catches bad addresses, duplicates, nothing-enabled.
 4. Commit, push. Railway redeploys; the new contract backfills alongside the existing index.
 
-Removing a contract (or setting `enabled: false`) stops *future* indexing but does **not** delete
-rows already indexed. To purge it, wipe the volume and re-sync, or delete from sqlite by hand
-(`pnpm ssh`, then `sqlite3 /data/torii-db/torii.db`) — check table names via `/sql` first.
+Removing a contract (or setting `enabled: false`) does **not** stop indexing it and does **not**
+delete its rows — the engine reads its contract list from the db, not from the config, so an
+already-indexed contract keeps syncing until its row is gone. To actually drop it (or to re-index it
+from an earlier block), wipe the volume and re-sync, or delete its `contracts` row and data from
+sqlite by hand (`pnpm ssh`, then `sqlite3 /data/torii-db/torii.db`) — check table names via `/sql`
+first.
 
 ## Update the torii version
 

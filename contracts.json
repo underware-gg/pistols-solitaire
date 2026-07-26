@@ -28,8 +28,16 @@
         "enabled": false
       },
       {
+        "game": "realms",
+        "name": "Realms",
+        "type": "ERC721",
+        "address": "0x07ae27a31bb6526e3de9cf02f081f6ce0615ac12a6d7b85ee58b8ad7947a2809",
+        "block": 664162,
+        "enabled": false
+      },
+      {
         "game": "pistols",
-        "name": "fame_coin",
+        "name": "Fame",
         "type": "ERC20",
         "address": "0x2549653a4ae1ff8d04a20b8820a49cbe97486c536ec0e4c8f68aa33d80067cf",
         "block": 1376394,
@@ -37,7 +45,7 @@
       },
       {
         "game": "pistols",
-        "name": "fools_coin",
+        "name": "Fools",
         "type": "ERC20",
         "address": "0x68a7a07e08fc3e723a878223d00f669106780d5ea6665eb15d893476d47bf3b",
         "block": 1376394,
@@ -45,7 +53,7 @@
       },
       {
         "game": "pistols",
-        "name": "duel_token",
+        "name": "Duels",
         "type": "ERC721",
         "address": "0x2e9c711b1a7e2784570b1bda5082a92606044e836ba392d2b977d280fb74b3c",
         "block": 1376394,
@@ -53,7 +61,7 @@
       },
       {
         "game": "pistols",
-        "name": "duelist_token",
+        "name": "Duelists",
         "type": "ERC721",
         "address": "0x7aaa9866750a0db82a54ba8674c38620fa2f967d2fbb31133def48e0527c87f",
         "block": 1376394,
@@ -61,7 +69,7 @@
       },
       {
         "game": "pistols",
-        "name": "pack_token",
+        "name": "Packs",
         "type": "ERC721",
         "address": "0x71333ac75b7d5ba89a2d0c2b67d5b955258a4d46eb42f3428da6137bbbfdfd9",
         "block": 1376394,
@@ -69,7 +77,7 @@
       },
       {
         "game": "pistols",
-        "name": "ring_token",
+        "name": "Rings",
         "type": "ERC721",
         "address": "0x14aa76e6c6f11e3f657ee2c213a62006c78ff2c6f8ed40b92c42fd554c246f2",
         "block": 1559511,
@@ -77,23 +85,7 @@
       },
       {
         "game": "collect-code",
-        "name": "astraea",
-        "type": "ERC721",
-        "address": "0x191e5a4490bf246a9acd76d17bd2e3eb208eb7f5c0795dc4848f338b2e27277",
-        "block": 2345324,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
-        "name": "bauhash",
-        "type": "ERC721",
-        "address": "0x7b973b93f0224a07d1874966736c83cc5e47b9c14490dc0b4717417cac6099c",
-        "block": 3985094,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
-        "name": "karat_gen1",
+        "name": "Karat",
         "type": "ERC721",
         "address": "0x7d8ea58612a5de25f29281199a4fc1f2ce42f0f207f93c3a35280605f3b8e68",
         "block": 722386,
@@ -101,11 +93,43 @@
       },
       {
         "game": "collect-code",
-        "name": "karat_gen2",
+        "name": "Karat G2",
         "type": "ERC721",
         "address": "0x30f694df2a04e04cf3e1d3e79dd5aadfdaa77295bb007696222fc60a5e8730d",
         "block": 1499552,
         "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Astraea",
+        "type": "ERC721",
+        "address": "0x191e5a4490bf246a9acd76d17bd2e3eb208eb7f5c0795dc4848f338b2e27277",
+        "block": 2345324,
+        "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Bauhash",
+        "type": "ERC721",
+        "address": "0x7b973b93f0224a07d1874966736c83cc5e47b9c14490dc0b4717417cac6099c",
+        "block": 3985094,
+        "enabled": true
+      },
+      {
+        "game": "loot-survivor",
+        "name": "Golden Token",
+        "type": "ERC721",
+        "address": "0x027838dea749f41c6f8a44fcfa791788e6101080c1b3cd646a361f653ad10e2d",
+        "block": 2021283,
+        "enabled": false
+      },
+      {
+        "game": "loot-survivor",
+        "name": "Beasts",
+        "type": "ERC721",
+        "address": "0x046da8955829adf2bda310099a0063451923f02e648cf25a1203aac6335cf0e4",
+        "block": 2209828,
+        "enabled": false
       }
     ]
   },
@@ -139,7 +163,7 @@
       },
       {
         "game": "pistols",
-        "name": "duel_token",
+        "name": "Duels",
         "type": "ERC721",
         "address": "0x2e9c711b1a7e2784570b1bda5082a92606044e836ba392d2b977d280fb74b3c",
         "block": 744979,
@@ -147,7 +171,7 @@
       },
       {
         "game": "pistols",
-        "name": "duelist_token",
+        "name": "Dueliss",
         "type": "ERC721",
         "address": "0x7aaa9866750a0db82a54ba8674c38620fa2f967d2fbb31133def48e0527c87f",
         "block": 744979,
@@ -155,7 +179,7 @@
       },
       {
         "game": "pistols",
-        "name": "pack_token",
+        "name": "Packs",
         "type": "ERC721",
         "address": "0x71333ac75b7d5ba89a2d0c2b67d5b955258a4d46eb42f3428da6137bbbfdfd9",
         "block": 744979,
@@ -163,7 +187,7 @@
       },
       {
         "game": "pistols",
-        "name": "ring_token",
+        "name": "Rings",
         "type": "ERC721",
         "address": "0x14aa76e6c6f11e3f657ee2c213a62006c78ff2c6f8ed40b92c42fd554c246f2",
         "block": 922821,
@@ -171,23 +195,7 @@
       },
       {
         "game": "collect-code",
-        "name": "astraea",
-        "type": "ERC721",
-        "address": "0x5bb54b047419c975c3be4e2cd5ad3df6084f5df96008182c214a78bd694f61e",
-        "block": 2148321,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
-        "name": "bauhash",
-        "type": "ERC721",
-        "address": "0x409c3d52b915f270f2770338d2d9d7d10d14e17d2d2a62f2999a7ff802c09ca",
-        "block": 3440282,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
-        "name": "karat_gen1",
+        "name": "Karat",
         "type": "ERC721",
         "address": "0x7983f8670a1ad69e289ba6ab8fff66ce92d4e7a560be51d977081f1317f614",
         "block": 799760,
@@ -195,10 +203,26 @@
       },
       {
         "game": "collect-code",
-        "name": "karat_gen2",
+        "name": "Karat G2",
         "type": "ERC721",
         "address": "0x70ea289f608f37e2ee38e8a5a5e1cd9203e7666db36714d20382b73302308e5",
         "block": 840405,
+        "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Astraea",
+        "type": "ERC721",
+        "address": "0x5bb54b047419c975c3be4e2cd5ad3df6084f5df96008182c214a78bd694f61e",
+        "block": 2148321,
+        "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Bauhash",
+        "type": "ERC721",
+        "address": "0x409c3d52b915f270f2770338d2d9d7d10d14e17d2d2a62f2999a7ff802c09ca",
+        "block": 3440282,
         "enabled": true
       }
     ]

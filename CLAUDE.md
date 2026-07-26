@@ -114,26 +114,14 @@ Notes for working with it:
 
 ## Torii indexer (`torii/`)
 
-`torii/SPECS.md` is the original hand-off spec. **The implementation deviates from it deliberately** — trust the code and `torii/README.md` over SPECS.md where they disagree:
+**Everything about the indexer lives in [`torii/CLAUDE.md`](./torii/CLAUDE.md)** — read it before
+touching `torii/`, the generated TOML, or the indexing side of `contracts.json`. Operational steps are
+in `torii/README.md`; `torii/SPECS.md` is frozen history the implementation deliberately deviates from.
 
-- the token list lives in **`contracts.json` at the repo root**, keyed by chain id (`SN_MAIN`, `SN_SEPOLIA`), not in `torii/config/tokens.json`; it is committed, not gitignored
-- `worlds` is an **array** (SPECS.md had a single `world` object): Torii 1.8.16 indexes any number of worlds in one instance — verified — with a sync head per `WORLD:` entry and `models`/`entities` keyed by `world_address`. Disabled entries stay in the file as history. `indexing.namespaces`/`models` filters are global, not per-world.
-- the top-level `world_address` TOML key is **not** emitted; the `WORLD:` entries in `indexing.contracts` are sufficient since Torii 1.6.1
-- every entry (worlds and contracts) carries `game` (grouping key), `block` (deployment block) and `enabled`; the generator emits Torii's `TYPE:address:start_block` form so each entry backfills from its own block
-- **`torii/scripts/find-deploy-block.mjs`** resolves a deployment block by binary searching `starknet_getClassHashAt` over block history (~24 RPC calls). Use it instead of guessing a block — `pnpm blocks` fills in any entry whose `block` is 0.
-- the generator is **`torii/scripts/generate-torii-config.mjs`** (Node, no deps), not a bash script
-- the image is `node:22-trixie-slim` + the pinned `torii` release binary pulled from GitHub releases — no asdf in the image. **The base must stay trixie or newer:** the amd64 torii release requires glibc ≥ 2.39 and bookworm ships 2.36. The arm64 release is linked against an older glibc, so this only breaks on amd64 (i.e. Railway) — reproduce locally with `docker build --platform linux/amd64`.
-- one image serves every network; `NETWORK` selects the `contracts.json` section, which is the only difference between the mainnet and sepolia Railway services
+Two things that reach outside `torii/` and so belong here:
 
-Key design points worth knowing before touching that area:
-
-- **Single JSON source of truth.** `contracts.json` lists the ERC-20/ERC-721 contracts and Dojo worlds to index. `generate-torii-config.mjs` converts it to a Torii TOML at container start. Adding a token should never require editing the Dockerfile, entrypoint, or TOML by hand.
-- **Persistent storage is enforced.** `entrypoint.sh` refuses to boot if the parent of `TORII_DB_DIR` isn't a mount (`REQUIRE_PERSISTENT_DB=false` to bypass locally).
-- **The oldest enabled `block` becomes `indexing.world_block`** — enabling a contract older than anything indexed forces a re-sync of that gap.
-- **Two modes, one config path.** `world.enabled: true` prepends a `WORLD:0x…` entry to the same `indexing.contracts` array the tokens use; `false` (or omitted) gives pure token-indexer mode. Torii ≥1.6.1 no longer requires a world address.
-- **Torii config precedence:** CLI args > `--config` TOML > env vars > defaults.
-- **Railway deployment.** Railway injects `PORT` — never set it manually. A Volume must be mounted at `/data` with `TORII_DB_DIR=/data/torii-db`, or every redeploy re-indexes from scratch. GraphQL/SQL/MCP/gRPC all share the one HTTP port; metrics (`9200`) must stay off the public domain.
-- **Torii's TOML schema changes between minor versions.** `TORII_VERSION` is pinned as a Docker build arg; validate generated config against `torii --help` for the pinned version before trusting any flag, and check the release notes on a bump.
+- **`contracts.json` at the repo root is the single source of truth** for which contracts Torii indexes *and* which tokens the client sees (`PROFILE.tokens`). One file, two consumers — a change to it is a change to both.
+- **Torii never indexes backwards.** `indexing.world_block` (the oldest enabled `block`) is only a fallback for contracts with **no row in the db yet**; an already-indexed contract resumes from its stored `head`. So adding an *older* contract costs the existing index nothing and backfills itself fine — but **re-indexing an existing contract from an earlier block, or dropping one, requires wiping data**, and `enabled: false` alone does not stop indexing it. Warn about that *before* editing `contracts.json`, offer both wipe options, never wipe unasked. Full mechanism, source citations and the live-db check: `torii/CLAUDE.md`.
 
 ## Reference repos on this machine
 
