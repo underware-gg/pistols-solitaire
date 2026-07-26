@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo (`underware-gg/pistols-solitaire`) is a **fresh scaffold**. As of the initial commit it contains only `README.md`, `.gitignore` (Node/JS template), and `.vscode/` config — no application code, no `package.json`, no `Scarb.toml`, and therefore **no build, lint, or test commands yet**. Do not assume any exist; check for a manifest before suggesting a command.
 
-The only substantive content is `torii/SPECS.md` (untracked), an implementation spec for the project's Torii indexer deployment. That spec is the current work item — see below.
+The one implemented area is the **Torii indexer deployment** (`contracts.json`, `railway.toml`, `torii/`) — see below. There is still no Cairo/Dojo code, no client, no root `package.json`; `torii/package.json` is the only manifest, and it has no dependencies.
 
 When adding tooling, verify the actual scripts in `package.json` / `Scarb.toml` rather than relying on this file, and update this section once they exist.
 
@@ -25,13 +25,24 @@ When adding tooling, verify the actual scripts in `package.json` / `Scarb.toml` 
 - **Biome** for format/lint (`.vscode/extensions.json` recommends `biomejs.biome`), not ESLint/Prettier.
 - Indentation: 2 spaces for TS/JS, **4 spaces for Cairo and Python**.
 
-## Torii indexer (`torii/SPECS.md`)
+## Torii indexer (`torii/`)
 
-`torii/SPECS.md` is a hand-off spec, not documentation of existing code — the files it describes (`torii/Dockerfile`, `entrypoint.sh`, `scripts/generate-torii-config.sh`, `config/tokens.json`) do not exist yet. §14 is the implementation checklist.
+`torii/SPECS.md` is the original hand-off spec. **The implementation deviates from it deliberately** — trust the code and `torii/README.md` over SPECS.md where they disagree:
+
+- the token list lives in **`contracts.json` at the repo root**, keyed by chain id (`SN_MAIN`, `SN_SEPOLIA`), not in `torii/config/tokens.json`; it is committed, not gitignored
+- `worlds` is an **array** (SPECS.md had a single `world` object): Torii 1.8.16 indexes any number of worlds in one instance — verified — with a sync head per `WORLD:` entry and `models`/`entities` keyed by `world_address`. Disabled entries stay in the file as history. `indexing.namespaces`/`models` filters are global, not per-world.
+- the top-level `world_address` TOML key is **not** emitted; the `WORLD:` entries in `indexing.contracts` are sufficient since Torii 1.6.1
+- every entry (worlds and contracts) carries `game` (grouping key), `block` (deployment block) and `enabled`; the generator emits Torii's `TYPE:address:start_block` form so each entry backfills from its own block
+- **`torii/scripts/find-deploy-block.mjs`** resolves a deployment block by binary searching `starknet_getClassHashAt` over block history (~24 RPC calls). Use it instead of guessing a block — `pnpm blocks` fills in any entry whose `block` is 0.
+- the generator is **`torii/scripts/generate-torii-config.mjs`** (Node, no deps), not a bash script
+- the image is `node:22-trixie-slim` + the pinned `torii` release binary pulled from GitHub releases — no asdf in the image. **The base must stay trixie or newer:** the amd64 torii release requires glibc ≥ 2.39 and bookworm ships 2.36. The arm64 release is linked against an older glibc, so this only breaks on amd64 (i.e. Railway) — reproduce locally with `docker build --platform linux/amd64`.
+- one image serves every network; `NETWORK` selects the `contracts.json` section, which is the only difference between the mainnet and sepolia Railway services
 
 Key design points worth knowing before touching that area:
 
-- **Single JSON source of truth.** `torii/config/tokens.json` lists the ERC-20/ERC-721 contracts (and optionally a Dojo World address) to index. `generate-torii-config.sh` converts it to a Torii TOML at container start. Adding a token should never require editing the Dockerfile, entrypoint, or TOML by hand.
+- **Single JSON source of truth.** `contracts.json` lists the ERC-20/ERC-721 contracts and Dojo worlds to index. `generate-torii-config.mjs` converts it to a Torii TOML at container start. Adding a token should never require editing the Dockerfile, entrypoint, or TOML by hand.
+- **Persistent storage is enforced.** `entrypoint.sh` refuses to boot if the parent of `TORII_DB_DIR` isn't a mount (`REQUIRE_PERSISTENT_DB=false` to bypass locally).
+- **The oldest enabled `block` becomes `indexing.world_block`** — enabling a contract older than anything indexed forces a re-sync of that gap.
 - **Two modes, one config path.** `world.enabled: true` prepends a `WORLD:0x…` entry to the same `indexing.contracts` array the tokens use; `false` (or omitted) gives pure token-indexer mode. Torii ≥1.6.1 no longer requires a world address.
 - **Torii config precedence:** CLI args > `--config` TOML > env vars > defaults.
 - **Railway deployment.** Railway injects `PORT` — never set it manually. A Volume must be mounted at `/data` with `TORII_DB_DIR=/data/torii-db`, or every redeploy re-indexes from scratch. GraphQL/SQL/MCP/gRPC all share the one HTTP port; metrics (`9200`) must stay off the public domain.
