@@ -64,6 +64,17 @@ catalog:
   "@underware/pistols-sdk": ^1.3.2
 
   #--------------------------------
+  # storybook — the wallet-free preview surface for `components/ui/`
+  #
+  # `@storybook/nextjs-vite` reuses the client's tsconfig aliases and PostCSS/Tailwind
+  # pipeline; `vite` is its peer, declared so pnpm's strict linker can resolve it.
+  #
+  storybook: ^10.5.4
+  "@storybook/react": ^10.5.4
+  "@storybook/nextjs-vite": ^10.5.4
+  vite: ^8.1.5
+
+  #--------------------------------
   # misc
   #
   "@types/node": ^26.1.1

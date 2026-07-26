@@ -11,7 +11,12 @@ export function HomePage() {
       <h1 className="text-5xl">Pistols Solitaire</h1>
 
       <nav className="mt-6 grid w-full grid-cols-2 gap-4 mb-[20%]">
-        <NavigationCard className="h-30" href="/collection" label="Browse Your Collection" icon={Library} />
+        <NavigationCard
+          className="h-30"
+          href="/collection"
+          label="Browse Your Collection"
+          icon={Library}
+        />
         <NavigationCard className="h-30" label="Full Game Collection" icon={Layers} />
         <NavigationCard className="h-30" label="Duellling" icon={Swords} />
         <NavigationCard className="h-30" label="Solitaire" icon={Spade} />

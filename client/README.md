@@ -13,6 +13,20 @@ pnpm lint           # biome check
 pnpm format         # biome check --write
 ```
 
+## Storybook
+
+Previews for the `src/components/ui/` primitives — no wallet, no chain. Config in `.storybook/`.
+
+```bash
+pnpm storybook       # http://localhost:6006
+pnpm build-storybook # static build → storybook-static/ (gitignored)
+```
+
+From the repo root, `pnpm dev:all` runs the dev server and Storybook together.
+
+One story file per primitive, next to it (`src/components/ui/Button.stories.tsx`): an `All` story
+with every variant/size/state on one page, plus a controls-driven `Playground`.
+
 ## Layout
 
 `src/app/` = only what Next.js requires (`layout.tsx`, `page.tsx`, later `api/`, `actions/`); routes just mount a component (`page.tsx` → `<HomePage />`). Everything else lives in `src/components/`:

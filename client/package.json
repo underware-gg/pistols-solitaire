@@ -11,7 +11,10 @@
     "start": "next start",
     "check-types": "tsc --noEmit",
     "lint": "biome check .",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "storybook": "storybook dev -p 6006",
+    "storybook:claude": "storybook dev -p 6009",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@cartridge/connector": "catalog:",
@@ -33,13 +36,17 @@
     "tailwind-merge": "catalog:"
   },
   "devDependencies": {
+    "@storybook/nextjs-vite": "catalog:",
+    "@storybook/react": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "postcss": "catalog:",
+    "storybook": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:"
   },
   "engines": {
     "node": ">=22"

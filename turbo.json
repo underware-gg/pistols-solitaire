@@ -20,6 +20,17 @@
     "start": {
       "persistent": true,
       "cache": false
+    },
+    "storybook": {
+      "persistent": true,
+      "cache": false
+    },
+    "storybook:claude": {
+      "persistent": true,
+      "cache": false
+    },
+    "build-storybook": {
+      "outputs": ["storybook-static/**"]
     }
   }
 }

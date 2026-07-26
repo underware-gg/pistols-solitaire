@@ -9,9 +9,14 @@
   "scripts": {
     "dev": "turbo dev",
     "dev:claude": "turbo dev:claude",
+    "dev:all": "turbo dev storybook",
+    "dev:all:claude": "turbo dev:claude storybook:claude",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "lint": "turbo lint",
+    "storybook": "turbo storybook",
+    "storybook:claude": "turbo storybook:claude",
+    "build-storybook": "turbo build-storybook",
     "format": "biome check --write client"
   },
   "devDependencies": {

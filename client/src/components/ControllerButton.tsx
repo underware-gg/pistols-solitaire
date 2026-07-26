@@ -1,8 +1,8 @@
 'use client';
 
-import { User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useController } from '@/hooks/use-controller';
+import { pascalCase } from '@/utils/misc';
 
 // The connected account: opens the Controller. Renders nothing while disconnected —
 // connecting and disconnecting are both `HeaderMenu` options.
@@ -12,9 +12,8 @@ export function ControllerButton({ className }: { className?: string }) {
   if (!isConnected) return null;
 
   return (
-    <Button variant="secondary" onClick={() => openController()} className={className}>
-      <User className="size-4" />
-      {username ?? `${address?.slice(0, 6)}…${address?.slice(-4)}`}
+    <Button variant="text" onClick={() => openController()} className={className}>
+      {username ? pascalCase(username) : `${address?.slice(0, 6)}…${address?.slice(-4)}`}
     </Button>
   );
 }

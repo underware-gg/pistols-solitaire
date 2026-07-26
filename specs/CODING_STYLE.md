@@ -56,6 +56,7 @@ client/src/
 - **`cn()` (`@/lib/cn`) for composing conditional styles** (clsx + tailwind-merge). No string concatenation or template literals for class names.
 - **[diverges] Every component takes an optional `className`** — not just `ui/` primitives. Add `className?: string` to the props, merge it **last** through `cn()` onto the root element so the call site always wins, and pass nothing else through. It is the one escape hatch for placement and one-off tweaks, and it costs a line; a component without it forces the caller into a wrapper div.
 - Palette tokens are the `--color-ps-*` set in `@theme`, which generate utilities (`bg-ps-bg`, `text-ps-bold`, `border-ps-line`, `text-ps-accent`). Use the tokens, not raw hex or stock Tailwind colors.
+- **Two type roles, named for the role and not the face.** `--font-title` is the display face — headings and buttons, always with the `small-caps` utility beside it; `--font-mono` is body copy and is the `<body>` default, so nothing needs to ask for it. **No component ever names a font family**; re-facing the game is a one-line edit in `@theme`. (Tailwind's namespace is `--font-*`, which is what generates `font-title` — hence that order, not `--title-font`.)
 
 ```tsx
 // ✅ element styled directly; cn() for conditions; style only for dynamic values
@@ -67,11 +68,16 @@ client/src/
 
 ### Component styling API: props & variants
 
-When the same styling class keeps getting passed to a shared primitive (`client/src/components/ui/`), pull it into the component's **typed API** instead of repeating a class string at every call site. This makes the styling discoverable and type-checked.
+When the same styling class keeps getting passed to a shared primitive (`client/src/components/ui/`), pull it into the component's **typed API** instead of repeating a class string at every call site. This makes the styling discoverable, type-checked, and previewable in Storybook.
 
 - **Atomic, single-purpose class → boolean/enum prop.** One CSS concern (`image-rendering: pixelated`, `margin: auto`, `width/height: 100%`) becomes a prop mapping to the equivalent utilities. `<Image pixelated centered fluid />`, not `<Image className="PixelArt Centered FillParent" />`.
 - **Reusable, multi-property layout bundle → `variant`**, defined with **`class-variance-authority` (cva)** inside the component. `<Image variant="card" />`.
 - **cva is the variant mechanism for primitives** — typed variants (`VariantProps<typeof x>`), `defaultVariants`, and compound variants. Always merge its output with the incoming `className` through `cn()` so call sites can still override.
+- **`variant` is the *look*, `size` is the *scale*, and every primitive names them the same way.** `variant` is the emphasis ladder — `primary` (the default, the loudest thing on the felt), `secondary` (the quieter, panel-coloured sibling), `ghost` (no chrome at all, for icon-only controls), `text` (not a widget: clickable text). `size` is `sm` / `md` (the default) / `lg`. Don't invent `type`, `kind`, `color` or `small`/`big` for the same axes on another component.
+- **Always give the axis a `defaultVariants` entry**, so a bare `<Button>Connect</Button>` is the common case and only the exception passes a prop.
+- **A variant earns its name from a real call site**, not from a design system in the abstract. `text` exists because the header's account button is a name, not a widget; add the fifth variant the day a fifth call site needs it.
+- **Interactive feedback is motion, not fading.** Hover swells the control slightly, press snaps it down and it springs back — `hover:scale-105` / `active:scale-95`, with the press at half the hover's duration so it feels instant. Dimming a control on hover reads as *less* available, which is backwards: **`opacity` means disabled**. The `text` variant is the exception on both counts — it cancels the scale (text that resizes under the cursor reads as the widget it is trying not to be) and rides 90% → 100% instead, since it has no box to react.
+- **Gate every interactive state behind `not-disabled:`** (`not-disabled:hover:…`, `not-disabled:active:…`). A disabled control must be completely inert to the pointer; a stray un-gated `hover:border-…` still lights up under the cursor and undoes the `disabled:opacity-50` signal.
 - **Delete the class** from `main.css` once nothing references it. Keep it only when plain elements outside the primitive still use it.
 - Net effect: styling migrates into components' typed APIs, and `main.css` shrinks toward only tokens, base element styles, and irreducible globals.
 
@@ -88,13 +94,25 @@ type Props = VariantProps<typeof imageVariants> & { className?: string /* … */
 // <img className={cn(imageVariants({ variant, pixelated, centered }), className)} />
 ```
 
+## Storybook
+
+Storybook is the **wallet-free preview surface for `client/src/components/ui/`** — the place to see a primitive's whole variant matrix at once, with no chain, no Controller and no route in the way. `@storybook/nextjs-vite`, config in `client/.storybook/`, run with `pnpm storybook` (`:6006`) or `pnpm dev:all` (dev server + Storybook together).
+
+- **Every `ui/` primitive has a story next to it** — `components/ui/Button.tsx` → `components/ui/Button.stories.tsx`. Adding a variant to a primitive means adding it to that primitive's story in the same change; a variant with no story is undocumented.
+- **One story shows all the variants together.** The default export is `All`: every variant, size and state rendered on one page, grouped by axis, so the whole matrix is eyeballed in a single glance and against each other. **Don't** split it into `Primary`, `Secondary`, `Large`, `Disabled` — one story per state is noise, and it hides exactly the comparison the story exists to make.
+- **A second story, `Playground`, is the controls-driven single instance** for tweaking props in the panel. Those two are the whole convention; more stories need a reason (a distinct composition, not a distinct prop value).
+- **`title` is `'UI/<Component>'`** — the sidebar mirrors the folder.
+- **Declare `variant`/`size` in `argTypes`.** cva's `VariantProps` is a type-level union that react-docgen can't see, so without an explicit `control: 'select'` the Playground silently loses those controls.
+- **Stories decide nothing about styling.** They import `main.css` (via `.storybook/preview.tsx`) and render on the app's real felt, stamp and vignette — a story that hand-rolls a background or a colour is testing the story, not the component. Grouping/labelling scaffolding inside a story uses the same `--color-ps-*` tokens as everything else.
+- **A story is not a test and not a route.** Nothing that needs the Controller, Torii or a connected account belongs here; those components are exercised in the app.
+
 ## Conventions
 
 - **Prefer native platform resources over wrapper libraries** — `<audio>` over player libs, `matchMedia` over device-detect libs, `JSON.stringify` over prettifier libs, `document.cookie`/`cookies()` over cookie libs.
 - Data fetching & mutations follow **`specs/NEXTJS_DATA_FLOW.md`**: non-chain reads = API query routes (`/api/query/*`) + one react-query hook per query (`client/src/hooks/queries/`); mutations = server actions (`client/src/app/actions/`) + per-action hooks over `useActionMutation` (`client/src/hooks/mutations/`, centralized sonner toasts). No `useEffect` fetching. **Chain hooks (Starknet/Dojo) are used directly** — never wrapped in another `useQuery`/`useMutation` layer.
 - **[diverges] The chain layer is Starknet, not EVM.** ec-dapp's EVM rules (WebThreeContext, wagmi, `bn.js` ban, `EC.log` gating) map onto: read chain state through `@starknet-react/core` hooks (and the Dojo SDK once it lands), used bare — see `NEXTJS_DATA_FLOW.md` §0; keep chain config in `components/providers/StarknetProvider.tsx` and contract addresses in one registry; use native `bigint` for all chain-scale integers (never `bn.js`/`BigNumber`).
 - **Wallet connection is the Cartridge Controller only.** `@cartridge/connector`'s `ControllerConnector` is the single connector, built once at module scope in `components/providers/StarknetProvider.tsx` (it reuses `window.starknet_controller` and warns if constructed twice). Components never touch the connector directly — they go through `useController()` (`hooks/use-controller.ts`).
-- **[diverges] No Storybook** — component previews aren't set up; don't reference them in code comments.
+- **Storybook is the preview surface for `ui/` primitives** — see the **Storybook** section above. Same setup as ec-dapp (`@storybook/nextjs-vite`), scoped to `components/ui/` for now.
 
 ## Shared dependency versions
 

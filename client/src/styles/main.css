@@ -11,12 +11,15 @@
 
 /*
  * The design tokens — the only place any font or colour is decided. Everything else in
- * the app reaches them through the generated utilities (`font-serif`, `bg-ps-bg`,
+ * the app reaches them through the generated utilities (`font-title`, `bg-ps-bg`,
  * `text-ps-accent`, …) or `var(--color-ps-*)`; never a literal hex in a component.
  */
 @theme {
-  /* Type. EB Garamond for headings, Courier Prime everywhere else — as in Pistols. */
-  --font-serif: "EB Garamond", ui-serif, Georgia, serif;
+  /* Type. The title face for headings and buttons, Courier Prime for body copy — as in
+   * Pistols. Named for its *role*, not its shape: nothing outside this block names
+   * "EB Garamond", so re-facing the game is a one-line edit here. (`--font-title`, not
+   * `--title-font` — Tailwind's `--font-*` namespace is what generates `font-title`.) */
+  --font-title: "EB Garamond", ui-serif, Georgia, serif;
   --font-mono: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Three knobs drive the whole palette: the table felt, the ink, the accent. */
@@ -50,6 +53,15 @@
   --ps-stamp-bevel: 5px;
   --ps-stamp-bevel-color: gray;
   --ps-stamp-bevel-opacity: 0.05;
+}
+
+/*
+ * Small caps — the title face's caps treatment. Tailwind has no `font-variant-caps`
+ * utility, and it travels with `--font-title` everywhere it is used (headings, buttons),
+ * so it gets a utility of its own rather than an arbitrary property at each call site.
+ */
+@utility small-caps {
+  font-variant-caps: small-caps;
 }
 
 /*
@@ -144,8 +156,7 @@
   h4,
   h5,
   h6 {
-    @apply font-serif text-ps-bold;
-    font-variant-caps: small-caps;
+    @apply small-caps font-title text-ps-bold;
   }
 
   h1 {

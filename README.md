@@ -23,10 +23,20 @@ Env: [`client/.env.example`](./client/.env.example) → `client/.env.local` (not
 ```bash
 pnpm dev            # https://localhost:3000
 pnpm dev:claude     # https://localhost:3009 — second instance (builds to .next-claude)
+pnpm dev:all        # dev server + Storybook (:3000 + :6006)
 pnpm build          # build every package
 pnpm check-types    # tsc --noEmit
 pnpm lint           # biome check
 pnpm format         # biome check --write
+```
+
+## Storybook
+
+Component previews for `client/src/components/ui/`.
+
+```bash
+pnpm storybook       # http://localhost:6006
+pnpm build-storybook # static build → client/storybook-static/
 ```
 
 Details: [`client/README.md`](./client/README.md).

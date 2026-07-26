@@ -153,6 +153,9 @@ next-env.d.ts
 # Turborepo
 .turbo/
 
+# Storybook static build
+storybook-static
+
 # Torii indexer
 torii/*.generated.toml
 torii/data/
