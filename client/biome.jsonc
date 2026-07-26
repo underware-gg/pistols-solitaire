@@ -1,0 +1,7 @@
+{
+  "$schema": "../node_modules/@biomejs/biome/configuration_schema.json",
+  // Stub only — all rules live in the root biome.jsonc. This exists so Biome resolves the
+  // root config when run from this package, and so Biome stays scoped to `client/`
+  // (see specs/CODING_STYLE.md).
+  "extends": "//"
+}

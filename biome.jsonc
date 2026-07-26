@@ -1,0 +1,106 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // Ported from ec-dapp's biome.jsonc (see specs/CODING_STYLE.md). Divergences are marked
+  // DIVERGES and are deliberate — everything else should be kept in sync with upstream.
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/.next/**",
+      "!**/node_modules/**",
+      // Next.js rewrites this file during `next build`; don't fight the generator.
+      "!**/tsconfig.json",
+      "!**/next-env.d.ts",
+      // DIVERGES: upstream also excludes `**/styles/main.css` because Biome's CSS parser
+      // rejected Tailwind directives. Biome 2.5+ parses them (see `css.parser` below), so
+      // our single Tailwind entry point stays linted and formatted.
+      "!**/*.html",
+      "!**/*.md",
+      "!**/*.svg"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      // Omit parens on single-param arrows: `s => s.foo`.
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "css": {
+    "parser": {
+      // DIVERGES: parse Tailwind 4 directives (@import 'tailwindcss', @theme, @apply)
+      // instead of excluding the stylesheet from Biome.
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        // Import auto-sorting fights our manual grouping; disable the organize-imports assist.
+        "organizeImports": "off"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        // Tracked a11y debt upstream; downgraded to non-blocking until a dedicated pass.
+        "noStaticElementInteractions": "warn",
+        "useKeyWithClickEvents": "off",
+        "noAmbiguousAnchorText": "warn",
+        "useIframeTitle": "warn",
+        "useAltText": "warn"
+      },
+      "correctness": {
+        // Effect dependency arrays are intentionally curated (sync-on-change effects);
+        // the rule's suggestions are mostly false positives.
+        "useExhaustiveDependencies": "off",
+        // False positives from the render-N-hook-components pattern.
+        "useHookAtTopLevel": "warn",
+        // Missing keys in iterables — non-blocking warn.
+        "useJsxKeyInIterable": "warn"
+      },
+      "suspicious": {
+        // Remaining `any`s are tracked debt; warn, not build-blocking.
+        "noExplicitAny": "warn",
+        // Index keys are acceptable for static, non-reordering lists (grids, icon rows).
+        "noArrayIndexKey": "off",
+        // Exempt the intentional `!= null` idiom (catches null + undefined); flag all
+        // other loose equality.
+        "noDoubleEquals": {
+          "level": "error",
+          "options": { "ignoreNull": true }
+        },
+        // Its autofix rewrites our directory content-excludes (`!**/.next/**`) to the bare
+        // form, which stops excluding directory *contents* — leave the /** globs intact.
+        "useBiomeIgnoreFolder": "off"
+      },
+      "complexity": {
+        // Intentional static-namespace classes.
+        "noStaticOnlyClass": "off",
+        // Cosmetic; non-blocking warn.
+        "noUselessFragments": "warn",
+        // Cosmetic literal-key access; non-blocking warn.
+        "useLiteralKeys": "warn"
+      },
+      "performance": {
+        // The app renders on-chain/base64/SVG images via <img>; next/image adds no value.
+        "noImgElement": "off"
+      }
+    }
+  }
+}

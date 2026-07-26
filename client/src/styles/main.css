@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/*
+ * The ONE stylesheet for the app (specs/CODING_STYLE.md): Tailwind import, design
+ * tokens, base element styles, and the few irreducible globals. No other CSS files —
+ * no SCSS, no CSS Modules, no per-component stylesheets. One-off styling goes on the
+ * component as Tailwind utilities in JSX.
+ */
+@theme {
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Palette — generates utilities like `bg-ps-bg`, `text-ps-bold`, `border-ps-accent`. */
+  --color-ps-bg: #14100c; /* html background */
+  --color-ps-panel: #1e1811; /* raised surfaces */
+  --color-ps-line: #3a2f22; /* borders, separators */
+  --color-ps-text: #c8b394; /* body text */
+  --color-ps-bold: #efe1c7; /* headings, emphasis */
+  --color-ps-accent: #d4772f; /* interactive accent */
+}
+
+/*
+ * Base element styles. Shared defaults go on element selectors here, not on invented
+ * classes — a UI element gets a class only when it needs more than styling.
+ */
+html,
+body {
+  @apply min-h-full bg-ps-bg font-mono text-ps-text;
+}
+
+h1 {
+  @apply text-ps-bold text-2xl;
+}
+
+code {
+  @apply rounded bg-ps-bold/10 px-1 py-0.5 text-ps-bold;
+}

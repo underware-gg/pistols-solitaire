@@ -17,6 +17,23 @@ catalog:
   "@types/react-dom": ^19.2.3
 
   #--------------------------------
+  # styling — tailwind v4 (see specs/CODING_STYLE.md)
+  #
+  tailwindcss: ^4.3.3
+  "@tailwindcss/postcss": ^4.3.3
+  postcss: ^8.5.23
+  clsx: ^2.1.1
+  tailwind-merge: ^3.6.0
+  class-variance-authority: ^0.7.1
+  lucide-react: ^1.27.0
+
+  #--------------------------------
+  # data flow (see specs/NEXTJS_DATA_FLOW.md)
+  #
+  "@tanstack/react-query": ^5.101.4
+  sonner: ^2.0.7
+
+  #--------------------------------
   # misc
   #
   "@types/node": ^26.1.1

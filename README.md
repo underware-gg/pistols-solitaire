@@ -3,6 +3,7 @@
 | path                                 | what                                                   |
 | ------------------------------------ | ------------------------------------------------------ |
 | [`client/`](./client/README.md)      | Next.js web client                                     |
+| [`specs/`](./specs/)                 | coding style + data flow rules — read before coding    |
 | [`contracts.json`](./contracts.json) | contracts indexed per network — single source of truth  |
 | [`torii/`](./torii/README.md)        | Torii indexer: Docker image + Railway deployment       |
 

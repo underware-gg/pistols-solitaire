@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **READMEs are for humans.** The root `README.md` and each package's `README.md` hold operational instructions for people — how to install, run, deploy, add a token, etc. Keep them current as you change things, and keep them **very brief and direct**: commands and steps, no prose, no background essays. Architectural context and agent-facing guidance belongs here in `CLAUDE.md`, not in the READMEs.
 
+**Follow `specs/` for all client code.** [`specs/CODING_STYLE.md`](./specs/CODING_STYLE.md) and [`specs/NEXTJS_DATA_FLOW.md`](./specs/NEXTJS_DATA_FLOW.md) are binding, not advisory — read them before writing anything under `client/`. They were ported from `/Users/roger/Dev/CC/ec-dapp/specs/` (the upstream reference implementation); read the originals when a rule needs context, and keep the ports in sync when upstream changes. Deliberate differences are marked **[diverges]** in our copies — don't "fix" those back.
+
 ## Repository state
 
 This repo (`underware-gg/pistols-solitaire`) is an early scaffold. Two areas exist:
@@ -19,20 +21,34 @@ There is still **no Cairo/Dojo code** (no `Scarb.toml`, no `dojo/`, no SDK packa
 
 ## Workspace (`pnpm-workspace.yaml`, `turbo.json`)
 
-pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. Members: `client`, `torii`.
+pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. The only member is `client` (`torii` is commented out — it has no dependencies and its scripts are run from inside `torii/`).
 
 - **Shared dep versions live in the `catalog:` block of `pnpm-workspace.yaml`.** Packages reference them as `"next": "catalog:"` — bump the catalog, not the package manifests. Same convention as the reference monorepo.
 - Root scripts delegate to Turbo (`dev`, `build`, `check-types`, `lint`); `format` runs Biome directly over `client`.
-- `torii` is a workspace member but declares no dependencies and no Turbo tasks — its scripts are run from inside `torii/` as before.
+- Turbo currently buys little with a single package — it's there for the `dojo`/`sdk` packages to come, where `dependsOn: ["^build"]` ordering and build caching start to matter. Dropping it means pointing the root scripts at `pnpm -C client …`.
 - `onlyBuiltDependencies: [sharp]` in `pnpm-workspace.yaml` — pnpm 10 blocks postinstall scripts by default and Next.js image optimization needs sharp built.
 
 ## Client (`client/`)
 
-Next.js 16 (App Router, Turbopack), React 19, TypeScript, at `http://localhost:3000/`. Source under `client/src/app/`; `@/*` maps to `client/src/*`.
+Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind 4, at `http://localhost:3000/`. **`specs/CODING_STYLE.md` and `specs/NEXTJS_DATA_FLOW.md` govern everything here.** Layout:
 
-- **Next.js owns `client/tsconfig.json`** — it rewrites the file on `next build` (it set `jsx: react-jsx` and added `.next/dev/types/**/*.ts` to `include`). It is therefore excluded from Biome in `biome.json`; don't hand-format it or fight the rewrite.
-- **Biome** for format/lint (matching `.vscode/extensions.json`), config at the root, inherited by `client/biome.json` via `"extends": "//"`. Style follows the reference client: single quotes, no semicolons, 2-space indent, 120 columns.
-- Biome is scoped to `client/` on purpose: the pre-existing `torii/` scripts and `contracts.json` predate it and would produce a large reformat diff. Don't widen the scope without saying so.
+```
+client/src/
+  app/            routes; providers.tsx holds the shared QueryClient + <Toaster />
+  components/     shared components (ui/ for primitives with cva variants)
+  hooks/queries/  one react-query hook per API query route
+  hooks/mutations/ one hook per server action, over useActionMutation
+  lib/            cn(), client-utils (handleApiError)
+  styles/main.css the ONE stylesheet: Tailwind import + @theme tokens + base elements
+```
+
+- **Tailwind 4, no other CSS.** Tokens are the `--color-ps-*` set in `main.css`'s `@theme` (→ `bg-ps-bg`, `text-ps-bold`, `text-ps-accent`, `border-ps-line`). Compose classes with `cn()`. Tailwind is wired through `postcss.config.mjs` (`@tailwindcss/postcss`) — there is no `tailwind.config.*`, v4 configures in CSS.
+- **Icons: `lucide-react` only**, sized/colored with Tailwind utilities. Game art is not an icon — that goes in `public/assets/`.
+- **Data flow**: API query routes + react-query hooks for reads, server actions + `useActionMutation` for writes. No `useEffect` fetching. The chain layer (Starknet/Dojo), when it lands, is used bare — never wrapped in another query layer.
+- **Biome** config is `biome.jsonc` at the root, **ported from ec-dapp's** with the same rules; `client/biome.jsonc` is an `extends: "//"` stub. Single quotes, semicolons, 2-space, 100 columns, `arrowParentheses: asNeeded`, organize-imports off.
+- Biome is **scoped to `client/`** by deliberate choice — `torii/` and `contracts.json` predate the standard and would produce a large reformat diff. Don't widen the scope without saying so.
+- Several linter rules are downgraded to `warn`/`off` in `biome.jsonc` because they were **ec-dapp's tracked debt** (`noExplicitAny`, the a11y set, `useJsxKeyInIterable`, …). We have no such legacy code, so treat them as errors in practice; they can be tightened whenever.
+- **Next.js owns `client/tsconfig.json`** — it rewrites the file on `next build`. It's excluded from Biome; don't hand-format it or fight the rewrite.
 - `next-env.d.ts` is generated and gitignored.
 
 ## Intended stack (not yet present)
