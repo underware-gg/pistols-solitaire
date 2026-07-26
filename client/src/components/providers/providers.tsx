@@ -4,6 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
+import { ContractsProvider } from '@/components/providers/ContractsProvider';
 import { SettingsProvider } from '@/components/providers/SettingsProvider';
 import { StarknetProvider } from '@/components/providers/StarknetProvider';
 import { TokensProvider } from '@/components/providers/TokensProvider';
@@ -32,7 +33,11 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <StarknetProvider queryClient={queryClient}>
       <SettingsProvider>
-        <TokensProvider>{children}</TokensProvider>
+        {/* Collection metadata is account-independent, so it sits outside TokensProvider —
+         * whose effect is keyed on the connected address. */}
+        <ContractsProvider>
+          <TokensProvider>{children}</TokensProvider>
+        </ContractsProvider>
       </SettingsProvider>
       <Toaster
         position="bottom-right"

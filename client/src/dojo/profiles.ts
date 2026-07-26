@@ -52,6 +52,11 @@ export type TokenContract = {
   name: string;
   type: TokenType;
   address: string;
+  /**
+   * Card stock for this collection, when we have an opinion the contract itself does not ship.
+   * `ContractsProvider` prefers the collection's own `background_color` and falls back to this.
+   */
+  bgColor?: string;
 };
 
 export type ProfileConfig = {
@@ -152,6 +157,7 @@ type ContractsJsonEntry = {
   name: string;
   type: string;
   address: string;
+  bgColor?: string;
   enabled?: boolean;
 };
 
@@ -168,6 +174,7 @@ const profileTokens = (chainName: ChainId, pistols: Record<string, string>): Tok
       address:
         (entry.game === 'pistols' ? pistols[entry.name] : undefined) ??
         bigintToAddress(entry.address),
+      bgColor: entry.bgColor,
     }));
 
 export const getProfileConfig = (profileName: ProfileName): ProfileConfig => {

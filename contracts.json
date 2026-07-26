@@ -78,6 +78,7 @@
       {
         "game": "pistols",
         "name": "Rings",
+        "bgColor": "#1e1212",
         "type": "ERC721",
         "address": "0x14aa76e6c6f11e3f657ee2c213a62006c78ff2c6f8ed40b92c42fd554c246f2",
         "block": 1559511,
@@ -86,6 +87,7 @@
       {
         "game": "collect-code",
         "name": "Karat",
+        "bgColor": "#000000",
         "type": "ERC721",
         "address": "0x7d8ea58612a5de25f29281199a4fc1f2ce42f0f207f93c3a35280605f3b8e68",
         "block": 722386,
@@ -188,6 +190,7 @@
       {
         "game": "pistols",
         "name": "Rings",
+        "bgColor": "#1e1212",
         "type": "ERC721",
         "address": "0x14aa76e6c6f11e3f657ee2c213a62006c78ff2c6f8ed40b92c42fd554c246f2",
         "block": 922821,
@@ -196,6 +199,7 @@
       {
         "game": "collect-code",
         "name": "Karat",
+        "bgColor": "#000000",
         "type": "ERC721",
         "address": "0x7983f8670a1ad69e289ba6ab8fff66ce92d4e7a560be51d977081f1317f614",
         "block": 799760,

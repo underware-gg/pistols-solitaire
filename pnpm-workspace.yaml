@@ -69,6 +69,18 @@ catalog:
   "@underware/pistols-sdk": ^1.3.2
 
   #--------------------------------
+  # three.js — the 3D card table (client/src/components/pages/collection/)
+  #
+  # Driven through react-three-fiber, so the scene is React components and the cards are
+  # ordinary props/state — no imperative scene graph of our own. `drei` is only used for
+  # `<Html>`, the DOM-anchored-to-a-3D-point overlay. R3F 9 requires React 19.
+  #
+  three: ^0.185.1
+  "@types/three": ^0.185.1
+  "@react-three/fiber": ^9.6.1
+  "@react-three/drei": ^10.7.7
+
+  #--------------------------------
   # storybook — the wallet-free preview surface for `components/ui/`
   #
   # `@storybook/nextjs-vite` reuses the client's tsconfig aliases and PostCSS/Tailwind

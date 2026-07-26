@@ -1,4 +1,5 @@
 import type { ToriiClient } from '@dojoengine/torii-client';
+import { bigintToAddress } from '@underware/pistols-sdk/utils';
 import { PROFILE } from '@/dojo/config';
 
 //
@@ -24,3 +25,19 @@ export const getToriiClient = async (): Promise<ToriiClient> => {
   }
   return clientPromise;
 };
+
+/**
+ * The image Torii serves for one token — the same artwork a marketplace shows, already
+ * fetched from the token URI, decoded and cached by the indexer.
+ *
+ * Both path segments are the **64-hex-padded** form: that is how Torii keys its `tokens`
+ * rows (`felt_and_u256_to_sql_string`), and an unpadded address 404s (verified against the
+ * live indexer). `bigintToAddress` is the padder for both — it pads to 64 hex digits, which
+ * is what the u256 token id wants too, unlike `bigintToHex64` (16 digits).
+ *
+ * Raster art also takes `?w=`/`?h=` for a pre-resized copy, but the Pistols tokens are SVG
+ * and Torii resizes nothing for those, so we always ask for the original and rasterize it
+ * ourselves (`lib/card-art.ts`).
+ */
+export const tokenImageUrl = (contractAddress: string | bigint, tokenId: string | bigint): string =>
+  `${PROFILE.toriiUrl}/static/${bigintToAddress(contractAddress)}/${bigintToAddress(tokenId)}/image`;

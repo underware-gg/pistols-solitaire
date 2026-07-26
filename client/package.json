@@ -21,6 +21,8 @@
     "@cartridge/controller": "catalog:",
     "@dojoengine/core": "catalog:",
     "@dojoengine/torii-client": "catalog:",
+    "@react-three/drei": "catalog:",
+    "@react-three/fiber": "catalog:",
     "@starknet-react/chains": "catalog:",
     "@starknet-react/core": "catalog:",
     "@tanstack/react-query": "catalog:",
@@ -34,6 +36,7 @@
     "sonner": "catalog:",
     "starknet": "catalog:",
     "tailwind-merge": "catalog:",
+    "three": "catalog:",
     "zustand": "catalog:"
   },
   "devDependencies": {
@@ -43,6 +46,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
     "postcss": "catalog:",
     "storybook": "catalog:",
     "tailwindcss": "catalog:",
