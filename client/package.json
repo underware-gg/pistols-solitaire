@@ -33,7 +33,8 @@
     "react-dom": "catalog:",
     "sonner": "catalog:",
     "starknet": "catalog:",
-    "tailwind-merge": "catalog:"
+    "tailwind-merge": "catalog:",
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@storybook/nextjs-vite": "catalog:",

@@ -34,6 +34,11 @@ catalog:
   sonner: ^2.0.7
 
   #--------------------------------
+  # client state — zustand stores (client/src/stores/), same version as ec-dapp
+  #
+  zustand: ^5.0.14
+
+  #--------------------------------
   # starknet / cartridge controller
   #
   # Major versions match /Users/roger/Dev/Dojo/controller/examples/minimal

@@ -4,6 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
+import { SettingsProvider } from '@/components/providers/SettingsProvider';
 import { StarknetProvider } from '@/components/providers/StarknetProvider';
 import { TokensProvider } from '@/components/providers/TokensProvider';
 
@@ -30,7 +31,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <StarknetProvider queryClient={queryClient}>
-      <TokensProvider>{children}</TokensProvider>
+      <SettingsProvider>
+        <TokensProvider>{children}</TokensProvider>
+      </SettingsProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{

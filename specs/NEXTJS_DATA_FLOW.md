@@ -142,5 +142,5 @@ Not yet created — add on first use: `src/app/api/query/`, `src/app/actions/`, 
 
 - **Chain carve-out** (section 0) — Starknet + Cartridge Controller instead of wagmi; the Dojo SDK is not wired up yet.
 - **Providers live in `components/`**, not `app/` — `app/` is routing only (see `CODING_STYLE.md`).
-- **No zustand**: the action-id counter is a module-level variable (repo rule: prefer native resources over wrapper libs).
+- **No zustand in the mutation layer**: the action-id counter is a module-level variable (repo rule: prefer native resources over wrapper libs). Zustand is only for client state that outlives a component — see `CODING_STYLE.md` § Client state.
 - **No SSE / app database**: external state is the chain, read through Torii and the Dojo layer.

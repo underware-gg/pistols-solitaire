@@ -22,8 +22,16 @@
   --font-title: "EB Garamond", ui-serif, Georgia, serif;
   --font-mono: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* The felts the game can be played on — casino carpet tones, matched in depth so the
+   * derived colours below land in the same place on each. `tableColor` in the settings
+   * store picks one; the `html[data-table='…']` blocks in @layer base do the swap, so a
+   * fourth table is a tone here plus a line there. */
+  --ps-table-green: #1a5c3c;
+  --ps-table-red: #7a2430;
+  --ps-table-blue: #1f4478;
+
   /* Three knobs drive the whole palette: the table felt, the ink, the accent. */
-  --color-ps-bg: #1a5c3c; /* casino-table carpet green — html/body background */
+  --color-ps-bg: var(--ps-table-green); /* casino-table carpet — html/body background */
   --color-ps-text: #ffffff; /* body text */
   --color-ps-accent: #f2c94c; /* interactive accent — chip yellow */
 
@@ -50,7 +58,7 @@
   --ps-stamp-step: calc(var(--ps-stamp-size) * 2);
   --ps-stamp-color: black;
   --ps-stamp-opacity: 0.05;
-  --ps-stamp-bevel: 5px;
+  --ps-stamp-bevel: 2px;
   --ps-stamp-bevel-color: gray;
   --ps-stamp-bevel-opacity: 0.05;
 }
@@ -78,6 +86,21 @@
    */
   html {
     @apply min-h-full bg-ps-bg;
+  }
+
+  /*
+   * Switching tables re-points one token. `--color-ps-panel` / `--color-ps-line` are
+   * `color-mix()`es of `--color-ps-bg` declared on this same element, so they resolve
+   * against the override and the whole app — panels, borders, shadows, the felt stamp —
+   * moves with the felt. `SettingsProvider` sets the attribute from the settings store;
+   * green is the default and so needs no block of its own.
+   */
+  html[data-table="red"] {
+    --color-ps-bg: var(--ps-table-red);
+  }
+
+  html[data-table="blue"] {
+    --color-ps-bg: var(--ps-table-blue);
   }
 
   body {

@@ -31,7 +31,18 @@ client/src/
   components/     Header.tsx, ControllerButton.tsx, NavigationCard.tsx, providers/, ui/
   components/pages/home/   HomePage.tsx — the `/` route, plus any component only it uses
   hooks/          use-controller.ts, queries/, mutations/
+  stores/         settings-store.ts — zustand client state (see Client state below)
 ```
+
+## Client state (zustand stores)
+
+Client state that outlives a component lives in a **zustand store** in `client/src/stores/`, one file per concern, named `<concern>-store.ts` exporting `use<Concern>Store`. Same layout and conventions as ec-dapp's `src/stores/`. Component-local state stays `useState`; server data is react-query's job (`NEXTJS_DATA_FLOW.md`), never a store.
+
+- **Read and write the store directly** — `useSettingsStore(s => s.tableColor)`, `useSettingsStore(s => s.setTableColor)`. Select the one field you need (a whole-store selector re-renders on every unrelated change). No `useXActions` wrapper hooks ("actions" means server actions here) and no passthrough read hooks that only forward a selector.
+- **Setters live in the store**, beside the state they set, as plain `set(...)` closures. State transitions with logic (cycling through a list, clearing a group of flags) are a named method on the store, not the same expression re-derived at each call site.
+- **The settings store is all persisted.** Every field in `settings-store.ts` is a durable player preference, so it uses `persist` with **no `partialize`** — adding a setting is a field plus a setter, and it survives a reload for free. Per-session UI state (open panels, in-flight flags) does not go there; give it its own, unpersisted store.
+- **Persisted stores use `skipHydration` and rehydrate on mount.** Next.js prerenders with the store defaults, so reading a persisted value during the first client render is a hydration mismatch. `components/providers/SettingsProvider.tsx` calls `useSettingsStore.persist.rehydrate()` in a mount effect — every new persisted store rehydrates in that same place.
+- **A setting that CSS consumes is an attribute on `<html>`, not a class or inline styles.** `SettingsProvider` mirrors `tableColor` onto `data-table`, and `main.css` re-points a single token per value (`html[data-table='red'] { --color-ps-bg: … }`) — the derived palette follows on its own. Components never read the setting to pick a colour.
 
 ## TypeScript
 

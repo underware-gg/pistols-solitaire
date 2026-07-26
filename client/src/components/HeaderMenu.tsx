@@ -1,28 +1,31 @@
 'use client';
 
-import { House, LogIn, LogOut, Menu } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { House, type LucideIcon, LogIn, LogOut, Menu, Brush } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
+import { useSettingsStore } from '@/stores/settings-store';
 
 //
-// The header's hamburger — the home for actions that don't deserve a button of their own.
-// Today that is just connect / disconnect; the connected account itself stays on the
+// The header's hamburger — the home for actions that don't deserve a button of their own:
+// connect / disconnect and the settings. The connected account itself stays on the
 // `ControllerButton` next to it.
+//
+// "Switch table" cycles the felt colour and deliberately leaves the menu open — it is the
+// one item whose effect is visible behind the panel, so cycling to the table you want takes
+// one click per step instead of three.
 //
 // Open state is local, and a full-screen transparent button behind the panel closes it on
 // any outside click — a plain element, no document listener and no focus trap to maintain.
 //
 
-const itemStyle =
-  'flex w-full cursor-pointer items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-ps-bold/10 hover:text-ps-bold';
-
 export function HeaderMenu({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const { isConnected, isConnecting, connect, disconnect } = useController();
+  const cycleTableColor = useSettingsStore(s => s.cycleTableColor);
+  const router = useRouter();
   const isHome = usePathname() === '/';
 
   const action = isConnected
@@ -51,29 +54,55 @@ export function HeaderMenu({ className }: { className?: string }) {
           />
           <ul className="absolute left-0 z-40 mt-1 min-w-40 rounded-xl border border-ps-line bg-ps-panel p-1 shadow-card">
             {!isHome && (
-              <li>
-                <Link href="/" className={itemStyle} onClick={() => setIsOpen(false)}>
-                  <House className="size-4 text-ps-accent" />
-                  Home
-                </Link>
-              </li>
-            )}
-            <li>
-              <button
-                type="button"
-                className={itemStyle}
+              <MenuButton
+                icon={House}
+                label="Home"
                 onClick={() => {
                   setIsOpen(false);
-                  action.run();
+                  router.push('/');
                 }}
-              >
-                <action.icon className="size-4 text-ps-accent" />
-                {action.label}
-              </button>
-            </li>
+              />
+            )}
+            <MenuButton icon={Brush} label="Switch table" onClick={cycleTableColor} />
+            <MenuButton
+              icon={action.icon}
+              label={action.label}
+              onClick={() => {
+                setIsOpen(false);
+                action.run();
+              }}
+            />
           </ul>
         </>
       )}
     </div>
+  );
+}
+
+function MenuButton({
+  icon: Icon,
+  label,
+  onClick,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        className={cn(
+          'flex w-full cursor-pointer items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-ps-bold/10 hover:text-ps-bold',
+          className,
+        )}
+        onClick={onClick}
+      >
+        <Icon className="size-4" />
+        <h5>{label}</h5>
+      </button>
+    </li>
   );
 }
