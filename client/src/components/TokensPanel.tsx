@@ -1,10 +1,12 @@
 'use client';
 
-import { Coins, Images } from 'lucide-react';
+import { Coins, Images, Wallet } from 'lucide-react';
 import { weiToEthString } from '@underware/pistols-sdk/starknet';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
+import { Button } from '@/components/ui/Button';
 import { PROFILE } from '@/dojo/config';
 import { useController } from '@/hooks/use-controller';
+import { cn } from '@/lib/cn';
 
 //
 // What the connected Controller owns, per game, straight off our Torii subscription.
@@ -13,14 +15,21 @@ import { useController } from '@/hooks/use-controller';
 
 const GAMES = [...new Set(PROFILE.tokens.map(token => token.game))];
 
-export function TokensPanel() {
-  const { isConnected } = useController();
+export function TokensPanel({ className }: { className?: string }) {
+  const { isConnected, isConnecting, connect } = useController();
   const { isLoading, balances } = useTokenBalances();
 
-  if (!isConnected) { /* TEMP */ }
+  if (!isConnected) {
+    return (
+      <Button onClick={connect} disabled={isConnecting} className={className}>
+        <Wallet className="size-4" />
+        {isConnecting ? 'Connecting…' : 'Connect'}
+      </Button>
+    );
+  }
 
   return (
-    <div className="w-full max-w-md text-left text-sm">
+    <div className={cn('w-full max-w-md text-left text-sm', className)}>
       <h2 className="mb-2 text-ps-bold">
         Inventory <span className="text-ps-text/60">({PROFILE.profileName})</span>
       </h2>

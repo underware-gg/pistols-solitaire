@@ -9,14 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'border-ps-accent bg-ps-accent text-ps-bg hover:bg-ps-accent/85',
+        primary: 'border-ps-text bg-ps-text text-ps-bg hover:bg-ps-text/85',
         secondary:
           'border-ps-line bg-ps-panel text-ps-text hover:border-ps-accent hover:text-ps-bold',
         ghost: 'border-transparent bg-transparent text-ps-text hover:text-ps-bold',
       },
       size: {
         sm: 'px-2.5 py-1 text-xs',
-        md: 'px-4 py-2 text-sm',
+        md: 'px-4 py-1.5 text-sm',
         lg: 'px-6 py-3 text-base',
       },
     },

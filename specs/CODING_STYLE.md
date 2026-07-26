@@ -19,15 +19,17 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`) — 
 
 **[diverges]** `client/src/app/` holds only what Next.js itself requires — `layout.tsx`, `page.tsx`, route handlers (`api/`), server actions (`actions/`), `favicon`/metadata files. Everything else lives in `client/src/components/`.
 
-- **A route file is a mount point, nothing more.** `app/page.tsx` imports one component and renders it: `<HomePage />`. Route markup, state and layout belong in `components/HomePage.tsx`, not in `page.tsx`.
+- **A route file is a mount point, nothing more.** `app/page.tsx` imports one component and renders it: `<HomePage />`. Route markup, state and layout belong in `components/pages/home/HomePage.tsx`, not in `page.tsx`.
+- **[diverges] One folder per page under `components/pages/`.** The page component lives in `components/pages/<page>/` — `pages/home/HomePage.tsx` for `/` — and **every component built specifically for that page sits beside it in the same folder**. A component only leaves the page folder when it is genuinely generic (a connect button, a badge, a `ui/` primitive) or when a second page starts using it; then it moves up to `components/` (or `components/ui/`) and both pages import it from there.
 - **Providers are components**, not route files: `components/providers/` (`providers.tsx` exports `Providers`; one file per provider next to it). `app/layout.tsx` imports `Providers` from there.
-- **Everything composable, everything in `components/`** — shared primitives in `components/ui/`, feature components at the top level of `components/`. New UI is a component in `components/` first; a route only ever grows an import.
+- **Everything composable, everything in `components/`** — shared primitives in `components/ui/`, page-specific components in `components/pages/<page>/`, cross-page feature components at the top level of `components/`. New UI is a component in `components/` first; a route only ever grows an import.
 - Hooks go in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer (`NEXTJS_DATA_FLOW.md`), the root of `hooks/` for chain and UI hooks.
 
 ```
 client/src/
   app/            layout.tsx, page.tsx, api/, actions/ — nothing else
-  components/     HomePage.tsx, ControllerButton.tsx, providers/, ui/
+  components/     Header.tsx, ControllerButton.tsx, NavigationCard.tsx, providers/, ui/
+  components/pages/home/   HomePage.tsx — the `/` route, plus any component only it uses
   hooks/          use-controller.ts, queries/, mutations/
 ```
 
@@ -52,6 +54,7 @@ client/src/
 - **A UI element gets its own class only when it needs more than styling** — behavior targeting, or a layout class reused on plain elements.
 - **`style` prop only when necessary** — dynamic runtime values (computed positions, colors, sizes). Never for static styling.
 - **`cn()` (`@/lib/cn`) for composing conditional styles** (clsx + tailwind-merge). No string concatenation or template literals for class names.
+- **[diverges] Every component takes an optional `className`** — not just `ui/` primitives. Add `className?: string` to the props, merge it **last** through `cn()` onto the root element so the call site always wins, and pass nothing else through. It is the one escape hatch for placement and one-off tweaks, and it costs a line; a component without it forces the caller into a wrapper div.
 - Palette tokens are the `--color-ps-*` set in `@theme`, which generate utilities (`bg-ps-bg`, `text-ps-bold`, `border-ps-line`, `text-ps-accent`). Use the tokens, not raw hex or stock Tailwind colors.
 
 ```tsx

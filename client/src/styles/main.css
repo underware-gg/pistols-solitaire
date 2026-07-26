@@ -33,6 +33,10 @@
    * utility, for anything that wants the same edge falloff on its own box. */
   --shadow-vignette: inset 0 0 50px color-mix(in oklab, black 35%, transparent);
 
+  /* Cards lifted off the felt — `shadow-card`, and the deeper one they rise to on hover. */
+  --shadow-card: 0 4px 12px color-mix(in oklab, black 35%, transparent);
+  --shadow-card-hover: 0 8px 22px color-mix(in oklab, black 45%, transparent);
+
   /* The logo stamped across the felt. Size is one logo; the lattice spaces them two
    * logos apart horizontally, one vertically, odd rows shifted half a step. The bevel is
    * a highlight along the far edge only — widen the lip with `--ps-stamp-bevel`, negate
