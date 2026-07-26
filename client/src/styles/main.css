@@ -1,36 +1,162 @@
 @import "tailwindcss";
+@import "./fonts.css";
 
 /*
- * The ONE stylesheet for the app (specs/CODING_STYLE.md): Tailwind import, design
- * tokens, base element styles, and the few irreducible globals. No other CSS files —
- * no SCSS, no CSS Modules, no per-component stylesheets. One-off styling goes on the
- * component as Tailwind utilities in JSX.
+ * The app's stylesheet (specs/CODING_STYLE.md): Tailwind import, design tokens, base
+ * element styles, and the few irreducible globals. The only other CSS file is
+ * `fonts.css` above, which holds the @font-face boilerplate and nothing else — no SCSS,
+ * no CSS Modules, no per-component stylesheets. One-off styling goes on the component as
+ * Tailwind utilities in JSX.
+ */
+
+/*
+ * The design tokens — the only place any font or colour is decided. Everything else in
+ * the app reaches them through the generated utilities (`font-serif`, `bg-ps-bg`,
+ * `text-ps-accent`, …) or `var(--color-ps-*)`; never a literal hex in a component.
  */
 @theme {
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Type. EB Garamond for headings, Courier Prime everywhere else — as in Pistols. */
+  --font-serif: "EB Garamond", ui-serif, Georgia, serif;
+  --font-mono: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Palette — generates utilities like `bg-ps-bg`, `text-ps-bold`, `border-ps-accent`. */
-  --color-ps-bg: #14100c; /* html background */
-  --color-ps-panel: #1e1811; /* raised surfaces */
-  --color-ps-line: #3a2f22; /* borders, separators */
-  --color-ps-text: #c8b394; /* body text */
-  --color-ps-bold: #efe1c7; /* headings, emphasis */
-  --color-ps-accent: #d4772f; /* interactive accent */
+  /* Three knobs drive the whole palette: the table felt, the ink, the accent. */
+  --color-ps-bg: #1a5c3c; /* casino-table carpet green — html/body background */
+  --color-ps-text: #ffffff; /* body text */
+  --color-ps-accent: #f2c94c; /* interactive accent — chip yellow */
+
+  /* Derived from the felt, so changing --color-ps-bg moves the whole table. */
+  --color-ps-panel: color-mix(in oklab, var(--color-ps-bg) 82%, black); /* raised surfaces */
+  --color-ps-line: color-mix(in oklab, var(--color-ps-bg) 72%, white); /* borders, separators */
+  --color-ps-bold: var(--color-ps-text); /* headings, emphasis — split off if they ever differ */
+
+  /* The viewport vignette — the felt darkening into the rail. Also a `shadow-vignette`
+   * utility, for anything that wants the same edge falloff on its own box. */
+  --shadow-vignette: inset 0 0 50px color-mix(in oklab, black 35%, transparent);
+
+  /* The logo stamped across the felt. Size is one logo; the lattice spaces them two
+   * logos apart horizontally, one vertically, odd rows shifted half a step. The bevel is
+   * a highlight along the far edge only — widen the lip with `--ps-stamp-bevel`, negate
+   * it to light the near edge instead, set it to 0 for a flat stamp. */
+  --ps-stamp-image: url("/logo/logo_mask_b.png");
+  --ps-stamp-lattice: conic-gradient(#000 0 25%, #0000 0 50%, #000 0 75%, #0000 0);
+  --ps-stamp-size: 150px;
+  --ps-stamp-step: calc(var(--ps-stamp-size) * 2);
+  --ps-stamp-color: black;
+  --ps-stamp-opacity: 0.05;
+  --ps-stamp-bevel: 5px;
+  --ps-stamp-bevel-color: gray;
+  --ps-stamp-bevel-opacity: 0.05;
 }
 
 /*
  * Base element styles. Shared defaults go on element selectors here, not on invented
- * classes — a UI element gets a class only when it needs more than styling.
+ * classes — a UI element gets a class only when it needs more than styling. They live in
+ * `@layer base` so a utility on the element (`<h3 className="text-ps-accent">`) still
+ * wins; outside a layer they would out-rank every utility by source order.
  */
-html,
-body {
-  @apply min-h-full bg-ps-bg font-mono text-ps-text;
-}
+@layer base {
+  /*
+   * The felt sits on <html> alone, not on <body>. It propagates to the canvas either
+   * way, but a background on <body> paints *above* body's negative-z-index children —
+   * which would bury the stamp below.
+   */
+  html {
+    @apply min-h-full bg-ps-bg;
+  }
 
-h1 {
-  @apply text-ps-bold text-2xl;
-}
+  body {
+    @apply min-h-full font-mono text-ps-text;
+  }
 
-code {
-  @apply rounded bg-ps-bold/10 px-1 py-0.5 text-ps-bold;
+  /*
+   * The logo stamped over the felt. CSS tiling has no notion of spacing — the drawn
+   * size *is* the repeat period — so the gaps come from masking: tile the logo edge to
+   * edge, then intersect that with a checkerboard of twice the period, which keeps only
+   * every other cell. What survives is a brick lattice: rows one logo apart, every
+   * other row shifted half a step. The artwork is a solid silhouette, so using it as a
+   * mask over a flat colour reproduces it exactly and makes the stamp re-colourable.
+   */
+  html::before,
+  body::before {
+    content: "";
+    @apply pointer-events-none fixed inset-0 -z-10;
+    mask-repeat: repeat;
+  }
+
+  body::before {
+    background-color: var(--ps-stamp-color);
+    opacity: var(--ps-stamp-opacity);
+    mask-image: var(--ps-stamp-image), var(--ps-stamp-lattice);
+    mask-size:
+      var(--ps-stamp-size) var(--ps-stamp-size),
+      var(--ps-stamp-step) var(--ps-stamp-step);
+    mask-composite: intersect;
+  }
+
+  /*
+   * The bevel — a highlight on the far edge of each stamp, so it reads as pressed into
+   * the felt under a top-left light. It is only the *lip*: an offset copy of the lattice
+   * with the stamp itself subtracted out, leaving a crescent a couple of pixels wide.
+   * A full offset copy underneath would be simpler, but then light and dark overlap
+   * across the whole silhouette and cancel — the stamp stops darkening the felt and the
+   * texture reads brighter overall, which is the opposite of a stamp.
+   *
+   * Mask layers composite bottom-up, so the list runs: subtract the stamp from the
+   * offset copy, then intersect with the lattice — and the lattice is offset alongside
+   * the copy, so the crescent is never clipped at a cell boundary. `html::before`
+   * precedes `body::before` in tree order and so paints below it at equal z-index. A
+   * `drop-shadow` filter would be far simpler but filters are applied before masking,
+   * i.e. to the flat rectangle rather than to the logo.
+   */
+  html::before {
+    background-color: var(--ps-stamp-bevel-color);
+    opacity: var(--ps-stamp-bevel-opacity);
+    mask-image: var(--ps-stamp-lattice), var(--ps-stamp-image), var(--ps-stamp-image);
+    mask-size:
+      var(--ps-stamp-step) var(--ps-stamp-step),
+      var(--ps-stamp-size) var(--ps-stamp-size),
+      var(--ps-stamp-size) var(--ps-stamp-size);
+    mask-position:
+      var(--ps-stamp-bevel) var(--ps-stamp-bevel),
+      var(--ps-stamp-bevel) var(--ps-stamp-bevel),
+      0 0;
+    mask-composite: intersect, subtract, add;
+  }
+
+  /*
+   * Inner shadow around the whole viewport. It has to be a fixed pseudo-element: an
+   * inset shadow on <body> is clipped to the body box (as tall as the content, not the
+   * window) and would scroll away with it. `pointer-events-none` keeps it inert, and it
+   * sits above app content so the falloff reads over panels too.
+   */
+  body::after {
+    content: "";
+    @apply pointer-events-none fixed inset-0 z-50 shadow-vignette;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif text-ps-bold;
+    font-variant-caps: small-caps;
+  }
+
+  h1 {
+    @apply text-3xl;
+  }
+
+  h2 {
+    @apply text-2xl;
+  }
+
+  h3 {
+    @apply text-xl;
+  }
+
+  code {
+    @apply rounded bg-ps-bold/10 px-1 py-0.5 font-mono text-ps-bold;
+  }
 }

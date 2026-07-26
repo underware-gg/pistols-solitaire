@@ -101,18 +101,18 @@
       },
       {
         "game": "collect-code",
-        "name": "Astraea",
-        "type": "ERC721",
-        "address": "0x191e5a4490bf246a9acd76d17bd2e3eb208eb7f5c0795dc4848f338b2e27277",
-        "block": 2345324,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
         "name": "Bauhash",
         "type": "ERC721",
         "address": "0x7b973b93f0224a07d1874966736c83cc5e47b9c14490dc0b4717417cac6099c",
         "block": 3985094,
+        "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Astraea",
+        "type": "ERC721",
+        "address": "0x191e5a4490bf246a9acd76d17bd2e3eb208eb7f5c0795dc4848f338b2e27277",
+        "block": 2345324,
         "enabled": true
       },
       {
@@ -211,18 +211,18 @@
       },
       {
         "game": "collect-code",
-        "name": "Astraea",
-        "type": "ERC721",
-        "address": "0x5bb54b047419c975c3be4e2cd5ad3df6084f5df96008182c214a78bd694f61e",
-        "block": 2148321,
-        "enabled": true
-      },
-      {
-        "game": "collect-code",
         "name": "Bauhash",
         "type": "ERC721",
         "address": "0x409c3d52b915f270f2770338d2d9d7d10d14e17d2d2a62f2999a7ff802c09ca",
         "block": 3440282,
+        "enabled": true
+      },
+      {
+        "game": "collect-code",
+        "name": "Astraea",
+        "type": "ERC721",
+        "address": "0x5bb54b047419c975c3be4e2cd5ad3df6084f5df96008182c214a78bd694f61e",
+        "block": 2148321,
         "enabled": true
       }
     ]

@@ -47,6 +47,7 @@ client/src/
 ## Styling (Tailwind)
 
 - **One main CSS file**: `client/src/styles/main.css`, imported by the root layout. It holds the Tailwind import, the `@theme` design tokens, base element styles, and the few necessary custom classes. No other stylesheets — no SCSS, no CSS Modules, no per-component CSS files.
+  - **[diverges] One exception: `client/src/styles/fonts.css`**, `@import`ed at the top of `main.css`. It holds the `@font-face` declarations and nothing else — a hundred lines of generated boilerplate that only changes when a font is added, and that would otherwise bury the tokens. It decides nothing: family names, sizes and colours stay in `@theme`. Do not add a second exception without the same justification.
 - **Style elements directly instead of inventing classes.** Shared element defaults go on element selectors in the main CSS file (`button { … }`, not `.button-class`); one-off styling goes on the component as Tailwind utilities in JSX.
 - **A UI element gets its own class only when it needs more than styling** — behavior targeting, or a layout class reused on plain elements.
 - **`style` prop only when necessary** — dynamic runtime values (computed positions, colors, sizes). Never for static styling.

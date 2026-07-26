@@ -156,3 +156,6 @@ next-env.d.ts
 # Torii indexer
 torii/*.generated.toml
 torii/data/
+
+# misc
+.DS_Store
