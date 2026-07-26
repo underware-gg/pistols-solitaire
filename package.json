@@ -8,6 +8,7 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "dev:claude": "turbo dev:claude",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "lint": "turbo lint",

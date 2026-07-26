@@ -85,6 +85,27 @@ The **oldest `block` among enabled contracts** becomes `indexing.world_block`, i
 indexer starts scanning. Enabling a contract older than anything already indexed forces a re-sync
 of that gap — expect a long backfill.
 
+## Env
+
+Copy [`.env.example`](./.env.example) to `.env`, or set as Railway service variables.
+Precedence: CLI args > `--config` TOML > env > defaults.
+
+Required: `NETWORK` = `SN_MAIN` | `SN_SEPOLIA`.
+
+| optional var             | default                       | notes                                          |
+| ------------------------ | ----------------------------- | ---------------------------------------------- |
+| `TORII_DB_DIR`           | `/data/torii-db`              | must be under a mounted volume in prod         |
+| `REQUIRE_PERSISTENT_DB`  | `true`                        | `false` to boot without a volume (local only)  |
+| `RPC_URL`                | `<NETWORK>.rpc_url`           | overrides `contracts.json`                     |
+| `METRICS_PORT`           | `9200`                        | keep off the public domain                     |
+| `CORS_ORIGINS`           | `*`                           | comma separated; your frontend origin in prod  |
+| `CONTRACTS_JSON_PATH`    | `/app/contracts.json`         |                                                |
+| `CONTRACTS_JSON`         | —                             | whole JSON blob, overrides the baked file      |
+| `GENERATED_TORII_TOML`   | `/app/torii.generated.toml`   |                                                |
+
+Never set `PORT` — Railway injects it and the generated config binds to it (8080 locally).
+`TORII_VERSION` is a Docker build arg, not env.
+
 ## Commands
 
 Run from `torii/`. All default to `SN_MAIN`; prefix with `NETWORK=SN_SEPOLIA` for sepolia.
@@ -110,14 +131,12 @@ Prometheus metrics on `:9200/metrics`.
 1. `railway init --name torii-mainnet` (or `torii-sepolia`), then `railway link` this directory to it.
 2. **Settings → Config as code** picks up `railway.toml` at the repo root automatically (Dockerfile
    path, `/health` healthcheck, restart policy). Nothing to set by hand.
-3. **Variables**:
-   | variable         | value                                                   |
-   | ---------------- | ------------------------------------------------------- |
-   | `NETWORK`        | `SN_MAIN` (or `SN_SEPOLIA`)                             |
-   | `TORII_DB_DIR`   | `/data/torii-db`                                        |
-   | `CORS_ORIGINS`   | your frontend origin(s), comma separated — not `*`       |
-   | `RPC_URL`        | *(optional)* overrides `rpc_url` from contracts.json     |
-   | `CONTRACTS_JSON` | *(optional)* whole JSON blob, overrides the baked file   |
+3. **Variables** — full list in [Env](#env) above. The three that matter here:
+   | variable       | value                                              |
+   | -------------- | -------------------------------------------------- |
+   | `NETWORK`      | `SN_MAIN` (or `SN_SEPOLIA`)                        |
+   | `TORII_DB_DIR` | `/data/torii-db`                                   |
+   | `CORS_ORIGINS` | your frontend origin(s), comma separated — not `*`  |
 
    **Do not set `PORT`** — Railway injects it and the generated config binds to it.
 4. **Volumes → Add volume**: name `torii-mainnet-data` (or `torii-sepolia-data`), mount path

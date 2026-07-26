@@ -1,19 +1,20 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
+import { StarknetProvider } from '@/components/providers/StarknetProvider';
 
 //
 // Client-side providers for the whole app.
 //
-// One shared QueryClient backs every query hook (src/hooks/queries/) and every
-// action mutation (src/hooks/mutations/) — see specs/NEXTJS_DATA_FLOW.md.
-// When the Dojo/Starknet layer lands, its provider wraps QueryClientProvider here
-// and shares this same client, so chain hooks are never re-wrapped (§0).
+// One shared QueryClient backs every query hook (src/hooks/queries/), every action
+// mutation (src/hooks/mutations/) and the chain layer — see specs/NEXTJS_DATA_FLOW.md.
+// `StarknetProvider` mounts the QueryClientProvider with this client, so chain hooks are
+// never re-wrapped (§0).
 //
-export default function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -27,7 +28,7 @@ export default function Providers({ children }: { children: ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <StarknetProvider queryClient={queryClient}>
       {children}
       <Toaster
         position="bottom-right"
@@ -39,6 +40,6 @@ export default function Providers({ children }: { children: ReactNode }) {
           },
         }}
       />
-    </QueryClientProvider>
+    </StarknetProvider>
   );
 }

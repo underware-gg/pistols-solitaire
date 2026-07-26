@@ -15,10 +15,14 @@ Requires Node >= 22 and pnpm.
 pnpm install
 ```
 
+Env: [`client/.env.example`](./client/.env.example) → `client/.env.local` (nothing required),
+[`torii/.env.example`](./torii/.env.example) → `torii/.env` (`NETWORK` required).
+
 ## Client
 
 ```bash
-pnpm dev            # http://localhost:3000
+pnpm dev            # https://localhost:3000
+pnpm dev:claude     # https://localhost:3009 — second instance (builds to .next-claude)
 pnpm build          # build every package
 pnpm check-types    # tsc --noEmit
 pnpm lint           # biome check

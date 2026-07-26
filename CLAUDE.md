@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Follow `specs/` for all client code.** [`specs/CODING_STYLE.md`](./specs/CODING_STYLE.md) and [`specs/NEXTJS_DATA_FLOW.md`](./specs/NEXTJS_DATA_FLOW.md) are binding, not advisory — read them before writing anything under `client/`. They were ported from `/Users/roger/Dev/CC/ec-dapp/specs/` (the upstream reference implementation); read the originals when a rule needs context, and keep the ports in sync when upstream changes. Deliberate differences are marked **[diverges]** in our copies — don't "fix" those back.
 
+**Starknet only — ec-dapp gives us style, not its chain.** ec-dapp is an Ethereum/EVM app; we import its coding style and data-flow conventions and nothing else. This project's chain is **Starknet** (Cairo/Dojo, `@starknet-react/core`, Cartridge Controller, Torii). Never bring an EVM library, address type or ABI convention across from it.
+
 ## Repository state
 
 This repo (`underware-gg/pistols-solitaire`) is an early scaffold. Two areas exist:
@@ -34,28 +36,47 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind 4, at `http:/
 
 ```
 client/src/
-  app/            routes; providers.tsx holds the shared QueryClient + <Toaster />
-  components/     shared components (ui/ for primitives with cva variants)
+  app/            ONLY what Next.js requires: layout.tsx, page.tsx, api/, actions/
+  components/     everything else — page components, providers/, ui/ (cva primitives)
+  hooks/          use-controller.ts (chain), plus:
   hooks/queries/  one react-query hook per API query route
   hooks/mutations/ one hook per server action, over useActionMutation
   lib/            cn(), client-utils (handleApiError)
   styles/main.css the ONE stylesheet: Tailwind import + @theme tokens + base elements
 ```
 
+- **`app/` is routing only** (`specs/CODING_STYLE.md` § File layout). `app/page.tsx` is a mount point — `return <HomePage />` — and every route's markup, state and providers live in `components/`. `Providers` is `components/providers/providers.tsx`, not `app/providers.tsx`. Applies to all new UI: component first, route grows an import.
 - **Tailwind 4, no other CSS.** Tokens are the `--color-ps-*` set in `main.css`'s `@theme` (→ `bg-ps-bg`, `text-ps-bold`, `text-ps-accent`, `border-ps-line`). Compose classes with `cn()`. Tailwind is wired through `postcss.config.mjs` (`@tailwindcss/postcss`) — there is no `tailwind.config.*`, v4 configures in CSS.
 - **Icons: `lucide-react` only**, sized/colored with Tailwind utilities. Game art is not an icon — that goes in `public/assets/`.
-- **Data flow**: API query routes + react-query hooks for reads, server actions + `useActionMutation` for writes. No `useEffect` fetching. The chain layer (Starknet/Dojo), when it lands, is used bare — never wrapped in another query layer.
+- **Data flow**: API query routes + react-query hooks for reads, server actions + `useActionMutation` for writes. No `useEffect` fetching. The chain layer is used bare — never wrapped in another query layer.
+- **Testing the app: `pnpm dev:claude` (port 3009), never `pnpm dev` (port 3000)** — 3000 is the user's own server, which runs all session. Don't `pkill` `next dev`; stop only what you started, matched by port (`lsof -ti:3009 | xargs kill`).
+  - Next.js locks one dev server per build dir, so `dev:claude` sets `NEXT_DIST_DIR=.next-claude` (honored in `next.config.ts`) — that's what allows two instances. Side effect: Next appends `.next-claude/**` globs to `client/tsconfig.json` include; that's expected, leave it.
+- **Dev runs over HTTPS** — `next dev --experimental-https` in both `dev` and `dev:claude`, so the URL is `https://localhost:3000`. Don't "simplify" it back to http:
+  - The Cartridge keychain iframe sends `frame-ancestors 'self' https: http://localhost:* http://127.0.0.1:* capacitor:`. Over plain http only `localhost`/`127.0.0.1` can frame `https://x.cartridge.gg/` — from any other host the browser blocks it and Connect silently does nothing, with no error from our code. The `https:` token is what makes LAN/device testing work.
+  - Certs are self-signed, generated into `client/certificates/` (gitignored) on first run, which also installs an mkcert CA and may prompt for a password. Other devices need that CA to avoid a warning.
+  - Separately, Next blocks `/_next/*` from non-localhost Origins, which 403s the HMR socket upgrade when reached at the LAN IP (hot reload dies; the client force-reloads after 25 retries). Handled by `allowedDevOrigins: ['192.168.*.*', '10.*.*.*']` in `next.config.ts`.
 - **Biome** config is `biome.jsonc` at the root, **ported from ec-dapp's** with the same rules; `client/biome.jsonc` is an `extends: "//"` stub. Single quotes, semicolons, 2-space, 100 columns, `arrowParentheses: asNeeded`, organize-imports off.
 - Biome is **scoped to `client/`** by deliberate choice — `torii/` and `contracts.json` predate the standard and would produce a large reformat diff. Don't widen the scope without saying so.
 - Several linter rules are downgraded to `warn`/`off` in `biome.jsonc` because they were **ec-dapp's tracked debt** (`noExplicitAny`, the a11y set, `useJsxKeyInIterable`, …). We have no such legacy code, so treat them as errors in practice; they can be tightened whenever.
 - **Next.js owns `client/tsconfig.json`** — it rewrites the file on `next build`. It's excluded from Biome; don't hand-format it or fight the rewrite.
 - `next-env.d.ts` is generated and gitignored.
 
+## Chain layer (`client/src/components/providers/`)
+
+Starknet **mainnet only**, connected through the **Cartridge Controller** — ported from `/Users/roger/Dev/Dojo/controller/examples/minimal`. Version policy: match that example's majors (`starknet` 8, `@starknet-react/*` 5) and track the latest `0.13.x` Controller. All versions in the root `catalog:`.
+
+- `providers/StarknetProvider.tsx` — the `ControllerConnector` is built **once at module scope** (it reuses `window.starknet_controller` and warns if constructed twice) and `StarknetConfig` is mainnet-only. Every `window` access inside the controller is guarded, so this module SSRs fine — no `dynamic(…, { ssr: false })` needed, and `/` still prerenders static.
+- `providers/providers.tsx` — `Providers`: creates the one `QueryClient` and hands it to `StarknetConfig`, which mounts the `QueryClientProvider` itself. One provider, one cache, shared with the app's own queries (`specs/NEXTJS_DATA_FLOW.md` §0).
+- `hooks/use-controller.ts` — the only thing components use: `connect` / `disconnect` / `openController(tab)` / `username` / `address` / `isConnected`. Composes bare `@starknet-react/core` hooks; never wraps them in another cache.
+- Config via optional env vars, with mainnet defaults baked in: `NEXT_PUBLIC_RPC_MAINNET`, `NEXT_PUBLIC_TORII_URL` (defaults to the Railway Torii, `https://pistols-solitaire-mainnet.up.railway.app`). Every var and its default is in `client/.env.example`; `torii/.env.example` covers the indexer.
+- `preset: 'pistols'` gives the Controller the Pistols theme. No `policies`/`namespace` yet — those need the deployed Dojo world. Add them when the contracts land.
+- `@cartridge/controller/react`'s `ControllerToaster` (and its stylesheet) is deliberately **not** mounted: it's optional, and the one-stylesheet rule means importing package CSS needs a reason. Add it when transaction toasts are wanted.
+
 ## Intended stack (not yet present)
 
 `.vscode/settings.json` was carried over from the sibling Pistols projects and reveals what is still expected:
 
-- **Dojo / Cairo on Starknet** — `cairo1.enableLanguageServer` + `cairo1.enableScarb`; a `dojo/bindings/**` path is excluded from search, implying generated TypeScript bindings from a Dojo world.
+- **Dojo / Cairo** — `cairo1.enableLanguageServer` + `cairo1.enableScarb`; a `dojo/bindings/**` path is excluded from search, implying generated TypeScript bindings from a Dojo world. The Dojo SDK is not wired into the client yet — only the Starknet/Controller layer above is.
 - Indentation: 2 spaces for TS/JS, **4 spaces for Cairo and Python**.
 
 ## Torii indexer (`torii/`)

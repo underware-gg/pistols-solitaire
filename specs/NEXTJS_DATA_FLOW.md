@@ -4,15 +4,27 @@ How data is fetched, mutated, and shared between server and client in `client/`.
 
 Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`), which adapted it from the popsy-top controller standard. Divergences are marked **[diverges]**; everything else should be kept in sync with upstream.
 
+**Only the data-flow pattern comes from ec-dapp — not its chain.** ec-dapp is Ethereum/EVM; **this project is Starknet only**. Wherever upstream says wagmi/viem/EVM, read `@starknet-react/core` + Cartridge Controller (section 0).
+
 **Scope:** every non-chain query and mutation follows this document — API proxies, metadata/IPFS fetches, Torii reads that go through our own routes, and anything added later. Adopt it every time data crosses the server/client boundary, even for one-off needs.
 
 ## 0. Chain-layer exception
 
-**[diverges]** Upstream carves out wagmi; here the carve-out is the **Starknet/Dojo layer**, which does not exist yet.
+**[diverges]** Upstream carves out wagmi; here the carve-out is the **Starknet/Dojo layer**. Starknet is wired up (`@starknet-react/core` + the Cartridge Controller); the Dojo SDK is not yet.
 
-When it lands: **chain hooks are used directly, never wrapped.** `@starknet-react/core` runs on TanStack Query internally and the Dojo SDK keeps its own store — do not wrap `useReadContract`/`useSendTransaction`/Dojo entity subscriptions in another `useQuery`/`useMutation` layer or in the hooks below. One shared `QueryClient` (created in `src/app/providers.tsx`) backs both the chain layer and the app's own queries; the chain provider wraps `QueryClientProvider` there and reuses that client.
+**Chain hooks are used directly, never wrapped.** `@starknet-react/core` runs on TanStack Query internally and the Dojo SDK keeps its own store — do not wrap `useAccount`/`useReadContract`/`useSendTransaction`/Dojo entity subscriptions in another `useQuery`/`useMutation` layer or in the hooks below. Composing several of them into one hook is fine (`hooks/use-controller.ts` does exactly that); adding a cache on top of them is not.
 
-Until then, every read and write in the app goes through sections 1 and 2.
+**One shared `QueryClient`** backs both the chain layer and the app's own queries. It is created in `src/components/providers/providers.tsx` and handed to `StarknetConfig`, which mounts the `QueryClientProvider` itself — so there is exactly one provider and one cache.
+
+| file | role |
+| --- | --- |
+| `src/components/providers/providers.tsx` | `Providers`: the shared `QueryClient` + `<Toaster />` |
+| `src/components/providers/StarknetProvider.tsx` | mainnet-only `StarknetConfig` + the module-scope `ControllerConnector` |
+| `src/hooks/use-controller.ts` | `useController()`: connect / disconnect / open Controller / username |
+
+The one thing react-query legitimately holds for the chain layer is a **one-shot SDK promise that has no hook** — e.g. `controllerConnector.username()`, keyed `['controller_username', address]`. That is not wrapping a hook, and it keeps `useEffect` out of it.
+
+Everything that is not the chain goes through sections 1 and 2.
 
 ## 1. Data Fetching (Read Access)
 
@@ -103,7 +115,7 @@ export async function dealHandAction(args: DealHandActionArgs) {
 
 Mutation feedback is centralized in `useActionMutation` (`src/hooks/mutations/use-action-mutation.tsx`) using **sonner**. Components never manage mutation toasts — and loading toasts replace blocking "waiting for server" modals.
 
-- **Setup**: A single `<Toaster position="bottom-right" />` is mounted in `src/app/providers.tsx`, styled with the `--color-ps-*` `@theme` tokens from `src/styles/main.css` so toasts match the app palette.
+- **Setup**: A single `<Toaster position="bottom-right" />` is mounted in `src/components/providers/providers.tsx`, styled with the `--color-ps-*` `@theme` tokens from `src/styles/main.css` so toasts match the app palette.
 - **Lifecycle** (per mutation):
   - `onMutate`: shows `toast.loading(...)` labeled with the action name plus a unique incrementing action id (module-level counter — no store lib needed). The toast `id` (`` `${actionName}-${actionId}` ``) makes it addressable, and its description renders a live `<ElapsedTimeBadge />`.
   - `onSettled`: `toast.dismiss(toastKey)` removes the loading toast whether the action succeeded or failed.
@@ -116,16 +128,19 @@ Scaffolded and ready to build on:
 
 | file | role |
 | --- | --- |
-| `src/app/providers.tsx` | the single shared `QueryClient` + `<Toaster />` |
+| `src/components/providers/` | the single shared `QueryClient`, `<Toaster />`, `StarknetConfig` (§0) |
+| `src/hooks/use-controller.ts` | Controller connection state + actions (§0) |
 | `src/hooks/queries/use-query-invalidate.ts` | `invalidateKey` / `invalidateKeys` |
 | `src/hooks/mutations/use-action-mutation.tsx` | generic server-action mutation wrapper |
 | `src/lib/client-utils.ts` | `handleApiError` |
 | `src/components/ElapsedTimeBadge.tsx` | live timer for loading toasts |
+| `src/components/ui/Button.tsx` | the cva button primitive |
 
 Not yet created — add on first use: `src/app/api/query/`, `src/app/actions/`, `src/hooks/queries/use-*.ts`, `src/server/`.
 
 ## Divergences from the ec-dapp original
 
-- **Chain carve-out** (section 0) — Starknet/Dojo instead of wagmi, and not wired up yet.
+- **Chain carve-out** (section 0) — Starknet + Cartridge Controller instead of wagmi; the Dojo SDK is not wired up yet.
+- **Providers live in `components/`**, not `app/` — `app/` is routing only (see `CODING_STYLE.md`).
 - **No zustand**: the action-id counter is a module-level variable (repo rule: prefer native resources over wrapper libs).
 - **No SSE / app database**: external state is the chain, read through Torii and the Dojo layer.

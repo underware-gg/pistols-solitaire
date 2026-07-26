@@ -34,6 +34,18 @@ catalog:
   sonner: ^2.0.7
 
   #--------------------------------
+  # starknet / cartridge controller
+  #
+  # Major versions match /Users/roger/Dev/Dojo/controller/examples/minimal
+  # (starknet 8, starknet-react 5); the Controller tracks the latest 0.13.x.
+  #
+  starknet: ^8.9.2
+  "@starknet-react/core": ^5.0.3
+  "@starknet-react/chains": ^5.0.3
+  "@cartridge/controller": ^0.13.16
+  "@cartridge/connector": ^0.13.16
+
+  #--------------------------------
   # misc
   #
   "@types/node": ^26.1.1

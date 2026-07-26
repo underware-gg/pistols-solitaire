@@ -76,7 +76,11 @@ web_modules/
 
 # Next.js build output
 .next
+.next-claude
 out
+
+# self-signed certs from `next dev --experimental-https`
+certificates
 
 # Nuxt.js build / generate output
 .nuxt

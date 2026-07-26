@@ -4,6 +4,8 @@ Rules for all code written in this repo. Referenced from `CLAUDE.md`; followed f
 
 Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`) — that repo is the upstream reference implementation. Divergences from it are marked **[diverges]** and are deliberate; everything else should be kept in sync.
 
+**Only the code style comes from ec-dapp.** ec-dapp is an Ethereum/EVM app; **this project is Starknet only** — Cairo contracts, `@starknet-react/core`, the Cartridge Controller, Torii. Never carry an EVM dependency, address type, ABI convention or wallet library across from it. Where its rules name an EVM tool, the Starknet analogue applies (see the chain-layer bullets under **Conventions**).
+
 ## Formatting
 
 - **Biome** is the formatter and linter.
@@ -12,6 +14,22 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`) — 
 - **2-space indentation**, single quotes, semicolons, 120-column lines.
 - **[diverges] Tailwind directives are parsed, not excluded.** `css.parser.tailwindDirectives: true` lets Biome lint and format `main.css` instead of ignoring it (ec-dapp excludes the file; Biome 2.5+ no longer requires that).
 - Match the surrounding code's idiom: comment density, naming, structure.
+
+## File layout: `app/` is routing only
+
+**[diverges]** `client/src/app/` holds only what Next.js itself requires — `layout.tsx`, `page.tsx`, route handlers (`api/`), server actions (`actions/`), `favicon`/metadata files. Everything else lives in `client/src/components/`.
+
+- **A route file is a mount point, nothing more.** `app/page.tsx` imports one component and renders it: `<HomePage />`. Route markup, state and layout belong in `components/HomePage.tsx`, not in `page.tsx`.
+- **Providers are components**, not route files: `components/providers/` (`providers.tsx` exports `Providers`; one file per provider next to it). `app/layout.tsx` imports `Providers` from there.
+- **Everything composable, everything in `components/`** — shared primitives in `components/ui/`, feature components at the top level of `components/`. New UI is a component in `components/` first; a route only ever grows an import.
+- Hooks go in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer (`NEXTJS_DATA_FLOW.md`), the root of `hooks/` for chain and UI hooks.
+
+```
+client/src/
+  app/            layout.tsx, page.tsx, api/, actions/ — nothing else
+  components/     HomePage.tsx, ControllerButton.tsx, providers/, ui/
+  hooks/          use-controller.ts, queries/, mutations/
+```
 
 ## TypeScript
 
@@ -70,7 +88,8 @@ type Props = VariantProps<typeof imageVariants> & { className?: string /* … */
 
 - **Prefer native platform resources over wrapper libraries** — `<audio>` over player libs, `matchMedia` over device-detect libs, `JSON.stringify` over prettifier libs, `document.cookie`/`cookies()` over cookie libs.
 - Data fetching & mutations follow **`specs/NEXTJS_DATA_FLOW.md`**: non-chain reads = API query routes (`/api/query/*`) + one react-query hook per query (`client/src/hooks/queries/`); mutations = server actions (`client/src/app/actions/`) + per-action hooks over `useActionMutation` (`client/src/hooks/mutations/`, centralized sonner toasts). No `useEffect` fetching. **Chain hooks (Starknet/Dojo) are used directly** — never wrapped in another `useQuery`/`useMutation` layer.
-- **[diverges] No chain layer yet.** ec-dapp's EVM rules (WebThreeContext, wagmi, `bn.js` ban, `EC.log` gating) have no equivalent here. When the Dojo/Starknet layer lands, the analogues are: read chain state through the Dojo SDK / `@starknet-react/core` hooks, register contracts in one registry, and use native `bigint` for all chain-scale integers (never `bn.js`/`BigNumber`). Update this section then.
+- **[diverges] The chain layer is Starknet, not EVM.** ec-dapp's EVM rules (WebThreeContext, wagmi, `bn.js` ban, `EC.log` gating) map onto: read chain state through `@starknet-react/core` hooks (and the Dojo SDK once it lands), used bare — see `NEXTJS_DATA_FLOW.md` §0; keep chain config in `components/providers/StarknetProvider.tsx` and contract addresses in one registry; use native `bigint` for all chain-scale integers (never `bn.js`/`BigNumber`).
+- **Wallet connection is the Cartridge Controller only.** `@cartridge/connector`'s `ControllerConnector` is the single connector, built once at module scope in `components/providers/StarknetProvider.tsx` (it reuses `window.starknet_controller` and warns if constructed twice). Components never touch the connector directly — they go through `useController()` (`hooks/use-controller.ts`).
 - **[diverges] No Storybook** — component previews aren't set up; don't reference them in code comments.
 
 ## Shared dependency versions
