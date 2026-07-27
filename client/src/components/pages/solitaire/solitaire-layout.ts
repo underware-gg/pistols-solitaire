@@ -27,6 +27,9 @@ const radians = THREE.MathUtils.degToRad;
 export const ASPECT = STANDARD_ASPECT;
 const WIDTH = cardWidth(ASPECT);
 
+/** Which way a drawn card turns over — see `BOARD.drawTurn`. */
+export type DrawTurn = 'over' | 'sideways';
+
 export const BOARD = {
   //--------------------------------
   // the grid the piles sit on
@@ -52,6 +55,26 @@ export const BOARD = {
   fanRightCount: 3,
   /** Cards drawn in a squared-up stock, however many it really holds. */
   stackDepth: 8,
+
+  //--------------------------------
+  // the draw
+  //
+  /**
+   * How a card the stock deals turns over on its way out. **Switch this and nothing else.**
+   *
+   * - `sideways` — about its long axis, the edge nearest the stock lifting and sweeping the way the
+   *   card is travelling, as a dealer turns the top card onto a waste lying beside it. It also rises
+   *   less (measured: 0.51 against 0.71), because a card standing on its long edge hangs below its own
+   *   centre by half its width rather than half its height.
+   * - `over` — end over end, standing up and lying back down, its far edge lifting toward the player.
+   *   The turn every other card on the board does.
+   *
+   * Which reads better depends on where the waste *is*, so it is a knob rather than a decision: beside
+   * the stock (Klondike's disposition) a sideways turn follows the travel; directly above or below it
+   * there is no sideways to speak of and `over` is the only one that means anything — which
+   * `drawnFrom` also enforces, falling back on its own when the two piles share a column.
+   */
+  drawTurn: 'sideways' as DrawTurn,
 
   //--------------------------------
   // dragging
@@ -280,21 +303,86 @@ export const stockCardPose = (index: number): Pose => ({
 });
 
 /**
- * Where every card enters from on a fresh deal: the top of a full stock, face down. Cards mount here and
- * travel to their places, which — with a per-card delay — is the deal.
+ * **The top of the stock as it currently stands**, face down — where a card enters the table from.
+ *
+ * Two things come out of here, because they are the same thing: every card of a fresh deal (mounting
+ * here and travelling to its place, staggered, *is* the deal) and every card the stock deals mid-game
+ * (which has no earlier pose to travel from — the stock is drawn as a `Deck3D`, so its cards are not
+ * mounted until they leave it).
+ *
+ * It follows the stock's *drawn* height rather than a full deck's, so a card dealt from a nearly empty
+ * stock comes off the top of what is actually lying there. At deal time the stock is deeper than
+ * `stackDepth` anyway, so this is the same pose the deal always used.
  */
-export const dealOrigin = (
+export const stockTop = (
   stock: Pile | PileSpec | undefined,
   board: BoardMetrics,
 ): Pose | undefined => {
   if (!stock) return undefined;
   const [x, z] = pileAnchor(stock, board);
+  const drawn =
+    'cards' in stock ? Math.min(BOARD.stackDepth, stock.cards.length) : BOARD.stackDepth;
   return {
-    position: [x, stackY(BOARD.stackDepth), z],
+    position: [x, stackY(drawn), z],
     rotation: [FACE_DOWN, 0, 0],
     scale: 1,
   };
 };
+
+/**
+ * `stockTop`, yawed so that a card turning over between the stock and the pile it is dealt to **rolls
+ * the way it is going** — the face-down half of both journeys, and the whole of `drawTurn: 'sideways'`.
+ *
+ * **A half turn of yaw on the face-down pose is the entire mechanism.** It makes the difference between
+ * this pose and the card's face-up one a 180° rotation about the board's z rather than about its x
+ * (`Rx(180)·Ry(180) = Rz(180)`), and because `usePoseAnimation` slerps orientations, the card walks
+ * exactly that arc: it turns over sideways with its top edge never moving. The yaw itself is invisible,
+ * being applied to a pose whose face is *down* — a card back has no top.
+ *
+ * Two things about the sign, both measured rather than reasoned:
+ *
+ * - **It is the *opposite* of the direction of travel.** Rolling the way the card is going means the
+ *   *trailing* edge lifts, passes over the top and lands leading — so for a waste to the right of the
+ *   stock the yaw is negative. Taking the sign of the journey instead rolls the card backwards, like a
+ *   wheel spinning the wrong way.
+ * - **Both directions want the same sign**, so `awayX` is the *non-stock* end of the journey either
+ *   way — the waste slot a card is dealt to, or the one it is coming back from. Reversing a slerp arc
+ *   reverses the roll, and the travel is reversed too, so one yaw serves the draw and the return.
+ *
+ * A waste in the stock's own column has no sideways to roll in, and `Math.sign(0)` makes that `over`.
+ */
+const rollingStockTop = (
+  stock: Pile | PileSpec | undefined,
+  board: BoardMetrics,
+  awayX: number,
+): Pose | undefined => {
+  const top = stockTop(stock, board);
+  if (!top || BOARD.drawTurn === 'over') return top;
+  const roll = -Math.sign(awayX - top.position[0]);
+  return {
+    ...top,
+    rotation: [top.rotation[0], top.rotation[1] + roll * Math.PI, top.rotation[2]],
+  };
+};
+
+/** Where a card the stock deals *mid-game* enters from, and how it turns over on the way out. */
+export const drawnFrom = (
+  stock: Pile | PileSpec | undefined,
+  board: BoardMetrics,
+  target: Pose,
+): Pose | undefined => rollingStockTop(stock, board, target.position[0]);
+
+/**
+ * Where a card the waste hands *back* to the stock is going, and how it turns over on the way.
+ *
+ * The other half of `drawnFrom`, for the redeal: those cards rejoin the `Deck3D` block and so unmount,
+ * which is a cut unless something keeps them alive to travel — see `RETURN_MS` in the table.
+ */
+export const returnedTo = (
+  stock: Pile | PileSpec | undefined,
+  board: BoardMetrics,
+  from: Pose,
+): Pose | undefined => rollingStockTop(stock, board, from.position[0]);
 
 //--------------------------------
 // Feedback

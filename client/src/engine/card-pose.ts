@@ -58,6 +58,22 @@ export const faceDownPose = (pose: Pose): Pose => ({
 export const damp = (current: number, target: number, lambda: number, delta: number): number =>
   current + (target - current) * (1 - Math.exp(-lambda * delta));
 
+/**
+ * The same smoothing for an orientation, in place — the **shortest arc**, which is what makes the axis
+ * a card turns about a consequence of the two poses rather than a fixed one.
+ *
+ * Smoothing the three Euler angles separately instead is not equivalent: it sweeps the tilt through
+ * upright no matter what the yaw is doing, so every turn is end over end. Here, two poses that differ
+ * by 180° about the board's z — a face-down pose *yawed a half turn* and its face-up one — turn the
+ * card over sideways, and a pair that differ in the tilt alone comes out the same as damping the tilt.
+ */
+export const dampQuaternion = (
+  current: THREE.Quaternion,
+  target: THREE.Quaternion,
+  lambda: number,
+  delta: number,
+): THREE.Quaternion => current.slerp(target, 1 - Math.exp(-lambda * delta));
+
 /** Snap an object onto a pose with no animation — used to place a card the frame it mounts. */
 export const applyPose = (object: THREE.Object3D, pose: Pose) => {
   object.position.set(...pose.position);

@@ -43,7 +43,7 @@ Four behaviours that look like features but are consequences. Know them, because
 
 | Behaviour | Why it is free |
 |---|---|
-| **The flip** | `faceDownPose()` differs from face-up by *one number*, the tilt. Sweeping `FACE_UP` → `FACE_DOWN` passes through upright, so the card stands up, turns over and lies back down. This is why `faceUp` can live in persisted game state and cost nothing to animate. |
+| **The flip** | `faceDownPose()` differs from face-up by *one number*, the tilt. Sweeping `FACE_UP` → `FACE_DOWN` passes through upright, so the card stands up, turns over and lies back down. This is why `faceUp` can live in persisted game state and cost nothing to animate. (Two things it does *not* get free: clearing the pile it is lying on — `FLIP_CLEARANCE` — and turning over about any other axis, which is the yaw trick in `dampQuaternion`.) |
 | **The deal arc** | `usePoseAnimation`'s `lift` derives height from the distance *still to travel*, so it falls to zero on arrival by itself. No landing logic. |
 | **Snap-back** | A rejected move must return **the same state object**. Poses are derived from state, so nothing changes and the damping walks the cards home. There is no snap-back code anywhere in the repo. |
 | **Undo** | Replaying to an earlier state re-derives earlier poses; the cards travel backwards. Nothing knows it is an undo. |
@@ -90,7 +90,7 @@ A rounded rect extruded to a card's thickness, re-cut into three material groups
 
 ### `card-pose.ts` — pose vocabulary
 
-`Pose`, `POSE_EULER_ORDER`, `FACE_UP`/`FACE_DOWN`, `faceDownPose()`, `damp()`, `applyPose()`. Pure geometry, no table's dimensions. **There is deliberately no `hoveredPose` here** — hover lift is a tuned number, so it lives in a layout.
+`Pose`, `POSE_EULER_ORDER`, `FACE_UP`/`FACE_DOWN`, `faceDownPose()`, `damp()`, `dampQuaternion()`, `applyPose()`. Pure geometry, no table's dimensions. **There is deliberately no `hoveredPose` here** — hover lift is a tuned number, so it lives in a layout.
 
 ### `use-pose-animation.ts` — the frame loop
 
@@ -101,8 +101,14 @@ const group = usePoseAnimation(pose, { initial, delay, lift, moveLambda });
 
 - `initial` is **mount-only** (`useLayoutEffect`). It is the entrance; a later change to it means nothing. Omit it and the object simply appears at its target.
 - Applied imperatively rather than through `position`/`rotation` props — those would be re-applied on any re-render and teleport a card back to its entrance mid-flight.
-- `delay` staggers per card. **A stagger is what makes a deal look dealt.**
+- `delay` staggers per card. **A stagger is what makes a deal look dealt.** **Mount-only, like `initial`** — it is measured against the object's whole life, so it can only gate the first moment of it; read live, any re-render inside the stagger window (a hover two cards away will do it) cancelled the wait and sent the card early.
 - `lift` arcs the object while travelling. Cards do; a deck sliding aside does not; a *dragged* card must not (it sets its own height).
+- **Orientations are slerped, not damped angle by angle — so the *axis* a card turns about is a consequence of the two poses** (`dampQuaternion`). Interpolating three Euler angles separately sweeps the tilt through upright whatever the yaw is doing, i.e. every turn is end over end. The shortest arc between a face-down pose *yawed a half turn* and its face-up one is 180° about the board's z, which is the same card turning over **sideways** (`Rx(180)·Ry(180) = Rz(180)`; verified in three — the arc holds the card's top edge still throughout and lands exactly on the target). Poses differing in the tilt alone interpolate identically either way, so this costs the ordinary flip nothing. `/solitaire`'s `BOARD.drawTurn` is the only caller so far. **Which way it rolls is the yaw's sign, and reversing the arc reverses the roll** — so the same yaw serves a journey and its return, and it is worth measuring rather than reasoning about (see `rollingStockTop`).
+- **A card also hops while it turns over, and that is not optional** (`FLIP_CLEARANCE`). A card rotates about its own centre, so mid-turn it stands on an edge and hangs a long way below that centre — half its height end over end, half its *width* sideways — which is inside the pile it is lying on, so the turn is drawn cut in two. The hop is `FLIP_CLEARANCE ×` how much further the card hangs below its centre than it is *meant* to, a pure function of the turn: widest mid-turn, exactly zero at both ends, and above 1 it clears the pile at *every* angle. Four traps, all measured:
+  - **The overhang is read off the card's own axes, not its `x` angle.** With the axis free, `|cos(rotation.x)|` is wrong: a sideways turn passes through `rotation.x === 0`, which by that measure reads as *flat* while the card is standing straight up on its long edge. Each axis contributes how vertical it has become — which needs the card's `aspect`, hence the option.
+  - **"Meant to" is damped at `TURN_LAMBDA`, not read off the pose.** An un-hovered card's target goes flat the instant the pointer leaves, while the card is still 6° over — read raw, it finds itself hanging lower than intended and kicks *up* by the difference (0.100 → 0.146) before settling. Damped, both sides decay together and the term stays at zero.
+  - **The hop is added to the damped height, not damped toward.** A turn is over in a tenth of a second; inside the damping the hop reaches well under half its target and peaks *after* the card is flat again — simulated, it never clears the pile at any amplitude. The previous frame's hop is taken back off first so the damping never sees it.
+  - **It is clamped at zero, which is what protects a pose that is genuinely upright.** A zoomed card facing the camera never hangs lower than intended, so it gets nothing and its framing is untouched — measured, it peaks 0.01 over its target and settles exactly on it.
 - `moveLambda` overrides the approach rate. `MOVE_LAMBDA` (7) is the default; **`GRAB_LAMBDA` (30) is what makes a dragged card feel attached** — direct manipulation is the one case where damping reads as lag rather than weight.
 - A backgrounded tab hands back one enormous delta; it is clamped to `1/30` so cards can't teleport.
 
@@ -167,7 +173,7 @@ visibleAt(fov, depth, aspect)              // frustum size at a depth
 
 ### `Card3D.tsx` — one card
 
-The card owns exactly one thing itself: **whether the cursor is on it.** Everything else — where it goes, which way up, whether it is picked, whether it is carried — is a prop, so the table stays the single place the view is decided.
+The card owns exactly one thing itself: **whether the cursor is on it.** Everything else — where it goes, which way up, whether it is picked, whether it is carried — is a prop, so the table stays the single place the view is decided. Even that one thing can be *overruled*: `hovered` lifts a card the cursor is not on, and `onHover` reports the cursor arriving, which is what lets a table lift a group without the engine learning what a group is.
 
 | Prop | Notes |
 |---|---|
@@ -178,6 +184,7 @@ The card owns exactly one thing itself: **whether the cursor is on it.** Everyth
 | `inHand` / `grabbed` | Draw over everything. See the depth traps below. `grabbed` additionally uses `GRAB_LAMBDA` and drops the arc. |
 | `depth` | Draw order *within* a carried run. See below. |
 | `hoverable`, `hoverPose` | Omit `hoverPose` and hover changes nothing but the cursor. |
+| `hovered`, `onHover` | Hover from the outside: the card takes `hoverPose` if the cursor is on it **or** `hovered` says so. The cursor itself still follows the pointer alone. See the lift-the-whole-run note below. |
 | `onClick`, `onDoubleClick`, `onPointerDown` | `onPointerDown` gets the event, because starting a drag needs the ray. |
 | `children` | Rendered **in the card's own space** — an `<Html>` there travels, tilts and scales with the card. |
 
@@ -266,13 +273,14 @@ For `<Html transform>`, drei maps 1px to `scale * 10/400` units of its parent's 
    - hover transforms (`hoveredCardPose`, `hoveredDeckPose`).
    Check whether your content is symmetric about the origin; if not, compute a shift (§4, `camera-fit.ts`).
 4. **Write the scene** — a `'use client'` component holding the `<Canvas flat shadows dpr={[1,2]} gl={{alpha:true}}>`, the keyboard, and any view state. Inside it: `<FitCamera>`, the lights straight from `BOARD`, the shadow-catcher plane, the slots, then the cards.
-5. **Write the table** — a component *inside* the Canvas that maps state to `<Card3D>`/`<Deck3D>`, keyed by stable card id. Pass `aspect` (and `pixelated`) consistently to the geometry and the art.
+5. **Write the table** — a component *inside* the Canvas that maps state to `<Card3D>`/`<Deck3D>`, keyed by stable card id, in **one flat list**. Nesting a list per pile/group looks equivalent and is not: React keys an inner array's fragment by slot index, so a card that moves between two of them unmounts and remounts, lands on its new pose the frame it mounts, and the move plays as a cut. Pass `aspect` (and `pixelated`) consistently to the geometry and the art.
 6. **Write the chrome** — DOM over the canvas, `pointer-events-none` on the wrapper, `pointer-events-auto` per control.
 7. **Verify in a real browser.** See §7.
 
 ### Interacting with cards — the checklist
 
 - **Hover**: pass `hoverPose`, and **only when the card can actually be acted on**. A hover lift on a card that cannot move promises a move that is not there.
+- **In an overlapping pile, hover lifts the whole group, not one card.** Any fan offsets a neighbour by a fraction of a card (0.3 of a height down a Klondike column) — orders of magnitude more than a card's thickness — so a single card lifting and tilting on its own rises *through* the cards resting on it. Track the hover in the table (`onHover`) and pass `hovered` to every card the pointer's card would take with it: the group keeps its own spacing, because they all take the same transform. **What lifts should be exactly what a drag would carry** — that is the promise a hover makes. Clear the tracked hover when those cards leave (a drop, a collect); only a pointer *move* would otherwise say so, and until then the group stays raised.
 - **Click / double-click**: `onClick` / `onDoubleClick`. Both `stopPropagation()` for you.
 - **Drag**: `useCardDrag` + `onPointerDown` + `grabbed`/`depth`. Resolve targets by nearest anchor; let rejection be a no-op.
 - **Flip**: put `faceUp` in state and pass `faceDown`. Do not animate it.

@@ -40,7 +40,7 @@ export function BagPage({ className }: { className?: string }) {
         variant="ghost"
         size="sm"
         aria-label="Back to the game"
-        className="pointer-events-auto"
+        className="mt-1 pointer-events-auto"
         onClick={() => router.push('/')}
       >
         <ChevronLeft className="size-5" />
@@ -54,10 +54,13 @@ export function BagPage({ className }: { className?: string }) {
       </div>
 
       {!isConnected && (
-        <Button className="pointer-events-auto ml-auto" onClick={connect} disabled={isConnecting}>
-          <Wallet className="size-4" />
-          {isConnecting ? 'Connecting…' : 'Connect'}
-        </Button>
+        <>
+          <Button className="pointer-events-auto ml-auto" onClick={connect} disabled={isConnecting}>
+            <Wallet className="size-4" />
+            {isConnecting ? 'Connecting…' : 'Connect'}
+          </Button>
+          <div className="flex-1" />
+        </>
       )}
 
       {isConnected && (
@@ -69,6 +72,7 @@ export function BagPage({ className }: { className?: string }) {
           onChange={setGameFilter}
         />
       )}
+
     </div>
   );
 }

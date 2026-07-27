@@ -66,7 +66,7 @@ export function SolitairePage() {
             <Link
               href="/"
               aria-label="Back to the menu"
-              className="pointer-events-auto text-ps-text transition-colors hover:text-ps-accent"
+              className="mt-2 pointer-events-auto text-ps-text transition-colors hover:text-ps-accent"
             >
               <ChevronLeft className="size-5" />
             </Link>

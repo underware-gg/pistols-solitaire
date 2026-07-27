@@ -48,6 +48,8 @@ export function Card3D({
   depth = 0,
   hoverable = true,
   hoverPose,
+  hovered = false,
+  onHover,
   onClick,
   onDoubleClick,
   onPointerDown,
@@ -128,6 +130,16 @@ export function Card3D({
    * page's layout because they are numbers set by eye. Omitted, hover changes nothing but the cursor.
    */
   hoverPose?: (pose: Pose) => Pose;
+  /**
+   * Take the hover pose without the pointer being on this card — for a card that has to rise
+   * *with* another one. A card is hovered if the cursor is on it **or** this says so, so a table
+   * can lift a whole run while the engine still knows nothing about runs: hovering the middle of a
+   * fanned column otherwise lifts one card through the cards resting on top of it, because the fan
+   * offsets a neighbour by far more than a card's thickness.
+   */
+  hovered?: boolean;
+  /** Told when the pointer arrives on or leaves this card — the other half of `hovered`. */
+  onHover?: (hovered: boolean) => void;
   onClick?: () => void;
   onDoubleClick?: () => void;
   /** Raw pointer-down, for starting a drag. Gets the event, because a drag needs the ray. */
@@ -135,15 +147,22 @@ export function Card3D({
   children?: ReactNode;
 }) {
   const art = useCardArt(frontUrl, { background, aspect, pixelated, pin });
-  const [hovered, setHovered] = useState(false);
+  // Whether the cursor is on *this* card, which is all the card decides for itself. `hovered` is the
+  // table's answer to the same question, and either one lifts it.
+  const [pointerOn, setPointerOn] = useState(false);
   const interactive = Boolean(onClick || onDoubleClick || onPointerDown);
-  useCursor(hovered && interactive);
+  // The cursor is the pointer's own business: a card lifted by a neighbour is not under it.
+  useCursor(pointerOn && interactive);
 
   const resting = faceDown ? faceDownPose(pose) : pose;
-  const target = hovered && hoverable && hoverPose && !grabbed ? hoverPose(resting) : resting;
+  const lifted = (pointerOn || hovered) && hoverable && !grabbed;
+  const target = lifted && hoverPose ? hoverPose(resting) : resting;
   const group = usePoseAnimation(target, {
     initial,
     delay,
+    // The turn hop needs the card's shape: turning over sideways it hangs below its centre by half its
+    // *width*, end over end by half its height.
+    aspect,
     // A carried card sets its own height from the drag plane, so the arc would fight it.
     lift: !grabbed,
     moveLambda: grabbed ? GRAB_LAMBDA : undefined,
@@ -157,9 +176,13 @@ export function Card3D({
       ref={group}
       onPointerOver={event => {
         event.stopPropagation();
-        setHovered(true);
+        setPointerOn(true);
+        onHover?.(true);
       }}
-      onPointerOut={() => setHovered(false)}
+      onPointerOut={() => {
+        setPointerOn(false);
+        onHover?.(false);
+      }}
       onPointerDown={
         onPointerDown &&
         (event => {

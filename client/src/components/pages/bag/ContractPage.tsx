@@ -34,7 +34,7 @@ export function ContractPage({ className }: { className?: string }) {
           variant="ghost"
           size="sm"
           aria-label="Back to the table"
-          className="pointer-events-auto"
+          className="mt-1 pointer-events-auto"
           onClick={() => router.push('/bag')}
         >
           <ChevronLeft className="size-5" />
