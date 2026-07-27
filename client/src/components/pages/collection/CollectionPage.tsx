@@ -1,7 +1,8 @@
 'use client';
 
-import { Wallet } from 'lucide-react';
-import { useCollectionView } from '@/components/pages/collection/CollectionScene';
+import { ChevronLeft, Wallet } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+// import { useCollectionView } from '@/components/pages/collection/CollectionScene';
 import { Button } from '@/components/ui/Button';
 import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
@@ -16,16 +17,29 @@ import { cn } from '@/lib/cn';
 //
 
 export function CollectionPage({ className }: { className?: string }) {
+  const router = useRouter();
   const { isConnected, isConnecting, connect } = useController();
-  const { isLoading } = useCollectionView();
+  // const { isLoading } = useCollectionView();
 
   return (
     <div className={cn('flex items-start gap-4', className)}>
+      {/* One level up from the table, in the same spot `ContractPage` puts its way out of a deck —
+       * so backing out of a deck and then off the table is the same button twice. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Back to the game"
+        className="pointer-events-auto"
+        onClick={() => router.push('/')}
+      >
+        <ChevronLeft className="size-5" />
+      </Button>
+
       <div>
         <h1>Your Collection</h1>
-        <p className="text-ps-text/60 text-sm">
+        {/* <p className="text-ps-text/60 text-sm">
           {isLoading ? 'Reading the table…' : 'Pick a deck.'}
-        </p>
+        </p> */}
       </div>
 
       {!isConnected && (

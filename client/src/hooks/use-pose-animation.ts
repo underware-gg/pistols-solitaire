@@ -13,8 +13,13 @@ import { applyPose, damp, type Pose, POSE_EULER_ORDER } from '@/lib/card-pose';
 // the table costs no renders — only the frame loop touches the matrix.
 //
 
-/** Approach rates, in reciprocal seconds — higher is snappier. */
-const MOVE_LAMBDA = 7;
+/**
+ * Approach rates, in reciprocal seconds — higher is snappier.
+ *
+ * `MOVE_LAMBDA` is exported because the zoom dimmer travels *with* the card it sits behind, and can
+ * only stay behind it by damping at exactly this rate — see `zoomBackdropDepth`.
+ */
+export const MOVE_LAMBDA = 7;
 const TURN_LAMBDA = 6;
 const SCALE_LAMBDA = 9;
 

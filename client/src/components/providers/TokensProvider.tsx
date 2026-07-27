@@ -1,12 +1,12 @@
 'use client';
 
 import type { Subscription, TokenBalance } from '@dojoengine/torii-client';
-import { useAccount } from '@starknet-react/core';
 import { bigintToAddress } from '@underware/pistols-sdk/utils';
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { PROFILE } from '@/dojo/config';
 import type { TokenContract } from '@/dojo/profiles';
 import { getToriiClient } from '@/dojo/torii';
+import { useController } from '@/hooks/use-controller';
 
 //
 // Every token balance the connected Controller owns, live.
@@ -30,7 +30,10 @@ export type TokenBalances = {
 };
 
 type TokensContextValue = {
-  /** True until the first page of balances has been fetched. */
+  /**
+   * True until the balances are known: while the Controller is still reconnecting *and* while the
+   * first page is being fetched. Empty balances only mean "owns nothing" once this is false.
+   */
   isLoading: boolean;
   balances: TokenBalances;
 };
@@ -52,10 +55,15 @@ const byTokenId = (a: string, b: string): number => {
  * {@link useTokenBalances} and the per-token hooks below.
  */
 export function TokensProvider({ children }: { children: ReactNode }) {
-  const { address: _a } = useAccount();
-  const address = _a ?? '0x02d06499b3c2bbd7b40a2431bd90ca640ac3fdad6d919bf4d4f5417fedd0c458'; // TEMP
+  //
+  // Read through `useController` rather than `useAccount` so that a page load, which reconnects the
+  // last used Controller before it can say who the player is, counts as *loading* rather than as an
+  // account holding nothing: `isLoading` is what tells the table it does not know the hand yet, and
+  // a table that believes an empty hand deals every collection as an empty slot.
+  //
+  const { address, isConnecting } = useController();
   const [balances, setBalances] = useState<TokenBalances>(EMPTY_BALANCES);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     if (!address || TOKEN_ADDRESSES.length === 0) {
@@ -93,7 +101,7 @@ export function TokensProvider({ children }: { children: ReactNode }) {
       setBalances(next);
     };
 
-    setIsLoading(true);
+    setIsFetching(true);
 
     (async () => {
       const client = await getToriiClient();
@@ -113,7 +121,7 @@ export function TokensProvider({ children }: { children: ReactNode }) {
         cursor = page.next_cursor;
       } while (cursor);
       publish();
-      setIsLoading(false);
+      setIsFetching(false);
 
       // Then stream every subsequent change for this account.
       subscription = await client.onTokenBalanceUpdated(
@@ -135,6 +143,8 @@ export function TokensProvider({ children }: { children: ReactNode }) {
     };
   }, [address]);
 
+  // Still settling counts as loading: nothing can be said about a hand whose owner is unknown.
+  const isLoading = isConnecting || isFetching;
   const value = useMemo(() => ({ isLoading, balances }), [isLoading, balances]);
 
   return <TokensContext.Provider value={value}>{children}</TokensContext.Provider>;

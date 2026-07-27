@@ -29,12 +29,14 @@ import { FACE_DOWN, FACE_UP, type Pose } from '@/lib/card-pose';
 const radians = THREE.MathUtils.degToRad;
 
 /**
- * The table's dimensions, all of them, in one editable block. Every function in this file reads it
- * at call time, so changing a number here (or from the console, in dev) is the whole edit.
+ * The table's dimensions and its lighting, all of them, in one editable block. Every function in
+ * this file reads it at call time, so changing a number here (or from the console, in dev) is the
+ * whole edit; the lighting block is read straight by `CardTable`, which is the only consumer with
+ * no function in between.
  *
  * Distances are in cards, angles are in **degrees**, and nothing is in pixels.
  *
- * **To fit more cards on the felt**: raise `gridColumns` / `gridRows`, then take the gaps down
+ * **To fit more cards on the felt**: raise `gridColumnsMax` / `gridRows`, then take the gaps down
  * toward 1 (edge to edge) and `cardScale` down from 1. The camera re-frames itself either way, so
  * more cards means smaller cards — the two knobs differ in *how* they get smaller: the grid counts
  * pack more cards into the same felt, while `cardScale` shrinks the cards and leaves the felt
@@ -44,11 +46,18 @@ export const TABLE = {
   //--------------------------------
   // the dealt grid
   //
-  /** Cards dealt per page. `gridColumns * gridRows` is the page size. */
-  gridColumns: 5,
+  /**
+   * How many cards wide the deal is, as a **range**: `gridColumnsFor` picks a count in it from the
+   * shape of the viewport, and `columns * gridRows` is the page size that follows. Narrowing the
+   * window drops a column at a time — the cards stay the size the height allows and the page holds
+   * fewer of them, which reads far better than the same twenty-four cards shrinking. Only once the
+   * deal is down to `gridColumnsMin` does the camera start backing off.
+   */
+  gridColumnsMax: 8,
+  gridColumnsMin: 2,
   gridRows: 4,
   /** Card-to-card spacing, in cards: 1 is edge to edge, 1.14 leaves a seventh of a card of felt. */
-  gridGapX: 1.14,
+  gridGapX: 1.2,
   gridGapZ: 1.04,
   /** How big a dealt card is drawn. Below 1 the cards shrink inside the same grid. */
   cardScale: 1,
@@ -81,7 +90,7 @@ export const TABLE = {
    * distance along it is fitted per view (`cameraDistance`). Steeper means more top-down — this one
    * is ~76° above the felt, which is why a flat card still reads.
    */
-  direction: [0, 6.2, 1.5] as [number, number, number],
+  direction: [0, 6.2, 1.0] as [number, number, number],
   /** Felt left around the layout when the camera frames it, in cards. */
   fitMargin: 0.6,
 
@@ -112,12 +121,40 @@ export const TABLE = {
   zoomBackdropGap: 0.45,
 
   //--------------------------------
+  // the lighting
+  //
+  // Positions are directions as much as places — a directional light shines from where it is put
+  // toward the origin, so what these set is the angle the felt is lit from, not a distance.
+  //
+  /** Flat light over everything: most of what makes a card's art readable. */
+  lightAmbient: 0.85,
+  /** The key, high and to the right — angled enough that a card turning over catches it. */
+  lightKeyPosition: [0, 7, 3.0] as [number, number, number],
+  lightKeyIntensity: 1.5,
+  /** Fill from the player's side, so a card held up to the camera is not lit only from behind. */
+  lightFillPosition: [-1, 3, 7] as [number, number, number],
+  lightFillIntensity: 0.45,
+
+  //--------------------------------
+  // the shadows
+  //
+  /** Half-width of the key light's shadow box, in cards: anything outside it casts nothing. */
+  shadowExtent: 6,
+  shadowNear: 0.5,
+  shadowFar: 30,
+  shadowMapSize: 1024,
+  /** Nudges the shadow off its caster. Cards lie nearly on the felt, so without it they self-shadow. */
+  shadowBias: -0.0006,
+  /** How dark the felt goes under a card — the shadow catcher's own opacity. */
+  shadowOpacity: 0.32,
+
+  //--------------------------------
   // hover
   //
   /** How far a hovered card comes off the felt, in cards. */
   hoverLift: 0.12,
   /** Degrees a hovered card turns toward the player as it lifts. */
-  hoverTilt: 6,
+  hoverTilt: 10,
   hoverScale: 1.05,
   deckHoverLift: 0.06,
 };
@@ -126,14 +163,44 @@ export const TABLE = {
 const SWEEP_Z = -14;
 
 /** Cards dealt per page — the slice of a deck that is on the table at once. */
-export const gridPageSize = (): number => TABLE.gridColumns * TABLE.gridRows;
+export const gridPageSize = (columns: number): number => columns * TABLE.gridRows;
 
 const gridGap = () => ({ x: CARD_WIDTH * TABLE.gridGapX, z: CARD_HEIGHT * TABLE.gridGapZ });
 const deckGap = () => ({ x: CARD_WIDTH * TABLE.deckGapX, z: CARD_HEIGHT * TABLE.deckGapZ });
 
 /** Where the open deck waits while its cards are dealt: clear of the grid, out to the left. */
-const pileX = () => -(((TABLE.gridColumns - 1) / 2) * gridGap().x + CARD_WIDTH * 1.2);
+const pileBaseX = (columns: number) => -(((columns - 1) / 2) * gridGap().x + CARD_WIDTH * 1.2);
 const pileZ = () => gridGap().z * 0.6;
+
+/**
+ * How far the dealt view reaches either side of the table's centre — **the deck's outer edge, not
+ * its centre**. A deck is a card wide, and leaving that half card out is what let the pile sit on
+ * the viewport edge with no felt around it.
+ */
+const gridReach = (columns: number) => ({
+  left: -pileBaseX(columns) + (CARD_WIDTH / 2) * TABLE.deckScale,
+  right: ((columns - 1) / 2) * gridGap().x + (CARD_WIDTH / 2) * TABLE.cardScale,
+});
+
+/**
+ * How far the whole dealt view is nudged right, so that it is *centred* in the viewport.
+ *
+ * The deal is not symmetric — the grid is centred on the table but the pile is parked off its left
+ * edge, so the layout reaches further left than right. `FitCamera` aims at the table's centre, so
+ * framing that box means backing off until its *widest* side fits and padding the other with the
+ * difference: a deck's width of felt on the right and none at all on the left. Sliding the grid and
+ * the pile together by half the overhang puts the content's own centre on the table's centre, and
+ * the margins come out equal.
+ *
+ * Only the dealt view moves. The browsing layout of decks is symmetric already, so `deckPose` and
+ * `deckTopPose` — where a closing deck goes home to — are deliberately left alone.
+ */
+const gridShiftX = (columns: number) => {
+  const reach = gridReach(columns);
+  return (reach.left - reach.right) / 2;
+};
+
+const pileX = (columns: number) => pileBaseX(columns) + gridShiftX(columns);
 
 /** Height of the nth card in a stack resting on the felt. */
 const stackY = (index: number) => CARD_THICKNESS * (index + 0.5);
@@ -179,8 +246,8 @@ export const deckSweptPose = (index: number, total: number): Pose => {
 };
 
 /** The open deck, parked clear of the grid — the pile its cards are dealt from and return to. */
-export const deckParkedPose = (): Pose => ({
-  position: [pileX(), 0, pileZ()],
+export const deckParkedPose = (columns: number): Pose => ({
+  position: [pileX(columns), 0, pileZ()],
   rotation: [0, 0, 0],
   scale: TABLE.deckScale,
 });
@@ -193,8 +260,8 @@ export const deckCardPose = (stackIndex: number): Pose => ({
 });
 
 /** Top of the parked pile, in world space: where a dealt card comes from. */
-export const pilePose = (): Pose => ({
-  position: [pileX(), stackY(TABLE.deckStack), pileZ()],
+export const pilePose = (columns: number): Pose => ({
+  position: [pileX(columns), stackY(TABLE.deckStack), pileZ()],
   rotation: [FACE_DOWN, 0, 0],
   scale: TABLE.cardScale,
 });
@@ -219,13 +286,13 @@ export const deckTopPose = (index: number, total: number, stack = TABLE.deckStac
 };
 
 /** A card's slot in the dealt grid, art up, by its index within the page. */
-export const gridPose = (index: number): Pose => {
+export const gridPose = (index: number, columns: number): Pose => {
   const gap = gridGap();
-  const column = index % TABLE.gridColumns;
-  const row = Math.floor(index / TABLE.gridColumns);
+  const column = index % columns;
+  const row = Math.floor(index / columns);
   return {
     position: [
-      (column - (TABLE.gridColumns - 1) / 2) * gap.x,
+      (column - (columns - 1) / 2) * gap.x + gridShiftX(columns),
       // Leaning on its own centre digs a card's bottom edge into the felt; this lifts it back out.
       (CARD_HEIGHT / 2) * TABLE.cardScale * Math.sin(radians(TABLE.gridTilt)) + CARD_THICKNESS,
       (row - (TABLE.gridRows - 1) / 2) * gap.z,
@@ -316,13 +383,38 @@ export const zoomPose = (fov: number, distance: number, aspect: number): Pose =>
   };
 };
 
-/**
- * The dimmer that sits between a zoomed card and the rest of the table: a plane facing the camera,
- * just behind the card, sized to fill the frustum at that depth.
- */
-export const zoomBackdropPlane = (fov: number, distance: number, aspect: number) => {
+/** How far in front of the camera a point on the table sits, measured along the view. */
+const cameraDepth = (distance: number, point: [number, number, number]) => {
   const camera = cameraAt(distance);
-  const depth = TABLE.zoomDistance + TABLE.zoomBackdropGap;
+  return new THREE.Vector3(...point).sub(camera.position).dot(camera.view);
+};
+
+/**
+ * How far in front of the camera the dimmer belongs — **and it moves**, which is the whole reason
+ * this is a function of `active` rather than a constant.
+ *
+ * The dimmer is opaque-ish black with a depth test, so anything *behind* it is drawn through it. Sat
+ * at the zoomed card's final depth it would therefore darken the card for the whole flight in from
+ * the felt and only let it up at the instant it crossed the plane — a card that dims on the way and
+ * brightens on arrival. So the dimmer waits **behind the deepest dealt card** and travels forward
+ * with the card it is dimming for, staying `zoomBackdropGap` behind it the whole way.
+ *
+ * That it *stays* behind is arithmetic, not luck: `ZoomBackdrop` damps this depth at the same rate
+ * `usePoseAnimation` damps a card's position, and a card's depth is a linear function of that
+ * position — so both sides are the same exponential and their difference decays from the head start
+ * to the gap without ever changing sign. Damp the dimmer faster and it would overtake the card.
+ */
+export const zoomBackdropDepth = (active: boolean, distance: number, columns: number): number =>
+  TABLE.zoomBackdropGap +
+  // The back row of the grid: same depth for every card in it, and no dealt card is deeper.
+  (active ? TABLE.zoomDistance : cameraDepth(distance, gridPose(0, columns).position));
+
+/**
+ * The dimmer that sits between a zoomed card and the rest of the table: a plane facing the camera
+ * at `depth`, sized to fill the frustum there — so it covers the frame wherever it has got to.
+ */
+export const zoomBackdropPlane = (fov: number, distance: number, aspect: number, depth: number) => {
+  const camera = cameraAt(distance);
   const position = camera.position.addScaledVector(camera.view, depth);
   const visible = visibleAt(fov, depth, aspect);
   return {
@@ -354,7 +446,7 @@ export const hoveredDeckPose = (pose: Pose): Pose => ({
 // for a grid that is not dealt: `FitCamera` damps between the two distances, and the pull-back is
 // itself part of opening a deck.
 //
-const fitHalfExtents = (view: TableView, deckCount: number) => {
+const fitHalfExtents = (view: TableView, deckCount: number, columns: number) => {
   const margin = CARD_WIDTH * TABLE.fitMargin;
   if (view === 'decks') {
     const gap = deckGap();
@@ -367,12 +459,11 @@ const fitHalfExtents = (view: TableView, deckCount: number) => {
     };
   }
   const gap = gridGap();
+  const reach = gridReach(columns);
   return {
-    width:
-      Math.max(
-        ((TABLE.gridColumns - 1) / 2) * gap.x + (CARD_WIDTH / 2) * TABLE.cardScale,
-        -pileX(),
-      ) + margin,
+    // Half the span from the deck's outer edge to the far side of the grid: `gridShiftX` has already
+    // centred that span on the table, so the box is symmetric again and the felt splits evenly.
+    width: (reach.left + reach.right) / 2 + margin,
     height: ((TABLE.gridRows - 1) / 2) * gap.z + (CARD_HEIGHT / 2) * TABLE.cardScale + margin,
   };
 };
@@ -380,9 +471,36 @@ const fitHalfExtents = (view: TableView, deckCount: number) => {
 /** Which layout the table is showing: decks to browse, or one deck dealt into a grid. */
 export type TableView = 'decks' | 'grid';
 
+/**
+ * How many cards wide to deal at this viewport shape: **the widest deal the height can still pay
+ * for**, between `gridColumnsMax` and `gridColumnsMin`.
+ *
+ * Cards are at their biggest while the camera is held back by the layout's *height*, which no number
+ * of columns changes — the moment the layout is too wide for the window instead, the camera backs
+ * off and every card on the felt shrinks. So narrowing the window drops a column rather than the
+ * card size, and only a window too narrow for `gridColumnsMin` starts costing size.
+ *
+ * A pure function of the aspect ratio, like everything else here — the caller measures, this decides.
+ */
+export const gridColumnsFor = (aspect: number): number => {
+  // Before the first measurement there is no shape to answer for; the widest deal is the safe guess,
+  // since nothing is dealt until the account's hand is known anyway.
+  if (!(aspect > 0)) return TABLE.gridColumnsMax;
+  for (let columns = TABLE.gridColumnsMax; columns > TABLE.gridColumnsMin; columns--) {
+    const fit = fitHalfExtents('grid', 0, columns);
+    if (fit.width / aspect <= fit.height) return columns;
+  }
+  return TABLE.gridColumnsMin;
+};
+
 /** How far back the camera has to sit for `view` to fit a viewport of this aspect ratio. */
-export const cameraDistance = (aspect: number, view: TableView, deckCount: number): number => {
-  const fit = fitHalfExtents(view, deckCount);
+export const cameraDistance = (
+  aspect: number,
+  view: TableView,
+  deckCount: number,
+  columns: number,
+): number => {
+  const fit = fitHalfExtents(view, deckCount, columns);
   const halfFov = Math.tan(radians(TABLE.fov) / 2);
   return Math.max(fit.width / (halfFov * aspect), fit.height / halfFov);
 };

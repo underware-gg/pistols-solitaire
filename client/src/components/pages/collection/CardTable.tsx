@@ -16,13 +16,15 @@ import {
   gridPose,
   pilePose,
   TABLE,
+  zoomBackdropDepth,
   zoomBackdropPlane,
   zoomPose,
 } from '@/components/pages/collection/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
 import { tokenImageUrl } from '@/dojo/torii';
 import { useCardArt } from '@/hooks/use-card-art';
-import { CARD_BACK_URL } from '@/lib/card-art';
+import { MOVE_LAMBDA } from '@/hooks/use-pose-animation';
+import { CARD_BACK_ALT_URL, CARD_BACK_URL, cardBackUrl } from '@/lib/card-art';
 import { damp } from '@/lib/card-pose';
 import { cn } from '@/lib/cn';
 
@@ -73,6 +75,7 @@ const BACKDROP_LAMBDA = 7;
 
 export function CardTable({
   decks,
+  columns,
   selected,
   page,
   zoomed,
@@ -82,6 +85,8 @@ export function CardTable({
   className,
 }: {
   decks: TableDeck[];
+  /** How many cards wide to deal — `gridColumnsFor`, decided by the scene from its own box. */
+  columns: number;
   /** Index of the open deck in `decks`, or null while the decks are laid out for browsing. */
   selected: number | null;
   /** Which page of the open deck is dealt. */
@@ -107,6 +112,7 @@ export function CardTable({
       >
         <Table
           decks={decks}
+          columns={columns}
           selected={selected}
           page={page}
           zoomed={zoomed}
@@ -121,6 +127,7 @@ export function CardTable({
 
 function Table({
   decks,
+  columns,
   selected,
   page,
   zoomed,
@@ -129,6 +136,7 @@ function Table({
   onTurnPage,
 }: {
   decks: TableDeck[];
+  columns: number;
   selected: number | null;
   page: number;
   zoomed: string | null;
@@ -137,17 +145,31 @@ function Table({
   onTurnPage: (delta: number) => void;
 }) {
   const viewport = useThree(state => state.size);
-  const back = useCardArt(CARD_BACK_URL, { pin: true });
+
+  //
+  // The two card backs, both loaded and pinned for the life of the table: pistols' own collections
+  // are printed on one and every other game on the other (`cardBackUrl`). Loaded up front rather
+  // than per deck because there are only two of them and every deck on the felt wants one already —
+  // a hook cannot be called per deck anyway, and a back arriving late would flash blank stock across
+  // a whole table of face-down cards.
+  //
+  const homeBack = useCardArt(CARD_BACK_URL, { pin: true });
+  const guestBack = useCardArt(CARD_BACK_ALT_URL, { pin: true });
+  const backFor = (game?: string) => (cardBackUrl(game) === CARD_BACK_URL ? homeBack : guestBack);
 
   //
   // Each view is framed on its own, and every pose in front of the camera is derived from where the
   // camera *will be* — so a card zooms to the right place even while the camera is still travelling.
   //
   const aspect = viewport.width / viewport.height;
-  const distance = cameraDistance(aspect, selected === null ? 'decks' : 'grid', decks.length);
-  const pile = pilePose();
+  const distance = cameraDistance(
+    aspect,
+    selected === null ? 'decks' : 'grid',
+    decks.length,
+    columns,
+  );
+  const pile = pilePose(columns);
   const zoom = zoomPose(TABLE.fov, distance, aspect);
-  const backdrop = zoomBackdropPlane(TABLE.fov, distance, aspect);
 
   //
   // The open deck's cards stay mounted for a moment after it closes so they can fly back to the
@@ -165,7 +187,7 @@ function Table({
     return () => clearTimeout(timer);
   }, [open]);
 
-  const size = gridPageSize();
+  const size = gridPageSize(columns);
   const hand = dealt ? dealt.tokenIds.slice(page * size, (page + 1) * size) : [];
 
   //
@@ -188,29 +210,29 @@ function Table({
     <>
       <FitCamera distance={distance} />
 
-      {/* Light enough to read the art, angled enough that a card turning over catches it. */}
-      <ambientLight intensity={0.85} />
+      {/* Light enough to read the art, angled enough that a card turning over catches it — every
+       * number is in `TABLE`'s lighting block. */}
+      <ambientLight intensity={TABLE.lightAmbient} />
       <directionalLight
-        position={[3.4, 7, 4.2]}
-        intensity={1.5}
+        position={TABLE.lightKeyPosition}
+        intensity={TABLE.lightKeyIntensity}
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
-        shadow-camera-near={0.5}
-        shadow-camera-far={30}
-        shadow-bias={-0.0006}
+        shadow-mapSize={[TABLE.shadowMapSize, TABLE.shadowMapSize]}
+        shadow-camera-left={-TABLE.shadowExtent}
+        shadow-camera-right={TABLE.shadowExtent}
+        shadow-camera-top={TABLE.shadowExtent}
+        shadow-camera-bottom={-TABLE.shadowExtent}
+        shadow-camera-near={TABLE.shadowNear}
+        shadow-camera-far={TABLE.shadowFar}
+        shadow-bias={TABLE.shadowBias}
       />
-      {/* Fill from the player's side, so a card held up to the camera is not lit only from behind. */}
-      <directionalLight position={[-1, 3, 7]} intensity={0.45} />
+      <directionalLight position={TABLE.lightFillPosition} intensity={TABLE.lightFillIntensity} />
 
       {/* The felt is CSS, so the table's only geometry is this shadow catcher: `shadowMaterial`
        * draws the shadow and nothing else, and the page shows through everywhere else. */}
       <mesh rotation-x={-Math.PI / 2} position-y={-0.001} receiveShadow>
         <planeGeometry args={[40, 40]} />
-        <shadowMaterial transparent opacity={0.32} />
+        <shadowMaterial transparent opacity={TABLE.shadowOpacity} />
       </mesh>
 
       {decks.map((deck, index) => {
@@ -241,12 +263,12 @@ function Table({
             label={deck.name}
             count={deck.tokenIds.length}
             remaining={remaining}
-            back={back}
+            back={backFor(deck.game)}
             pose={
               selected === null
                 ? deckPose(index, decks.length)
                 : index === selected
-                  ? deckParkedPose()
+                  ? deckParkedPose(columns)
                   : deckSweptPose(index, decks.length)
             }
             visible={selected === null || index === selected}
@@ -262,11 +284,12 @@ function Table({
             <Card3D
               key={`${dealt.address}-${tokenId}`}
               frontUrl={tokenImageUrl(dealt.address, tokenId)}
-              back={back}
+              back={backFor(dealt.game)}
               background={background}
-              pose={open ? (isZoomed ? zoom : gridPose(index)) : home}
+              pose={open ? (isZoomed ? zoom : gridPose(index, columns)) : home}
               initial={pile}
               delay={open ? DEAL_DELAY + index * DEAL_STAGGER : 0}
+              inHand={isZoomed}
               hoverable={!isZoomed}
               onClick={() => onZoom(isZoomed ? null : tokenId)}
             >
@@ -299,7 +322,12 @@ function Table({
           );
         })}
 
-      <ZoomBackdrop active={Boolean(zoomed)} plane={backdrop} onDismiss={() => onZoom(null)} />
+      <ZoomBackdrop
+        active={Boolean(zoomed)}
+        depth={zoomBackdropDepth(Boolean(zoomed), distance, columns)}
+        plane={depth => zoomBackdropPlane(TABLE.fov, distance, aspect, depth)}
+        onDismiss={() => onZoom(null)}
+      />
     </>
   );
 }
@@ -341,41 +369,89 @@ function FitCamera({ distance }: { distance: number }) {
 // because it has to sit *between* the card and the rest of the table — a DOM overlay can only be
 // in front of the whole canvas or behind all of it.
 //
+// It **travels with the card**, `zoomBackdropGap` behind it, rather than waiting at the card's final
+// depth: a card flying in from the felt is behind a parked dimmer and gets drawn *through* it, so it
+// would darken for the whole flight and brighten the moment it crossed the plane. `zoomBackdropDepth`
+// gives it a target on either side of the trip and this damps toward it at `MOVE_LAMBDA` — the rate
+// the card itself moves at, which is what keeps the dimmer from overtaking it.
+//
+// That covers a card on its own. Stepping along the row puts *two* cards in play on opposite sides
+// of the plane, which no single plane can be behind — so `Card3D`'s `inHand` is what keeps the card
+// being picked up out of the dimmer, and this travel is what keeps the card being put back down out
+// of it (it loses `inHand` the moment it is dropped, and would otherwise cross a parked plane within
+// a frame of setting off, while the dimmer is still at full strength).
+//
+// The mesh is a unit plane and the frame sets its scale, so following the card costs no geometry.
+//
 function ZoomBackdrop({
   active,
+  depth,
   plane,
   onDismiss,
 }: {
   active: boolean;
-  plane: ReturnType<typeof zoomBackdropPlane>;
+  /** Where the dimmer belongs right now, in front of the camera — `zoomBackdropDepth`. */
+  depth: number;
+  /** The plane that fills the frame at a given depth, as the dimmer passes through it. */
+  plane: (depth: number) => ReturnType<typeof zoomBackdropPlane>;
   onDismiss: () => void;
 }) {
   const mesh = useRef<THREE.Mesh>(null);
   const material = useRef<THREE.MeshBasicMaterial>(null);
+  const current = useRef(depth);
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (!material.current || !mesh.current) return;
+    const delta = Math.min(rawDelta, 1 / 30);
+
     material.current.opacity = damp(
       material.current.opacity,
       active ? BACKDROP_OPACITY : 0,
       BACKDROP_LAMBDA,
-      Math.min(delta, 1 / 30),
+      delta,
     );
     mesh.current.visible = material.current.opacity > 0.004;
+
+    // Faded out it is not on the table at all, so it parks rather than travels — the next card to be
+    // picked up finds the dimmer already waiting behind it, whichever way the last one went.
+    current.current = mesh.current.visible
+      ? damp(current.current, depth, MOVE_LAMBDA, delta)
+      : depth;
+
+    const at = plane(current.current);
+    mesh.current.position.set(...at.position);
+    mesh.current.rotation.set(...at.rotation);
+    mesh.current.scale.set(at.width, at.height, 1);
   });
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a <mesh> is a three.js object, not a DOM element — Escape dismisses the zoom for the keyboard
     <mesh
       ref={mesh}
-      position={plane.position}
-      rotation={plane.rotation}
       visible={false}
-      // Without a handler R3F leaves the plane out of hit testing entirely, so an inert backdrop
-      // cannot swallow a hover on the cards behind it.
-      onClick={active ? onDismiss : undefined}
+      //
+      // While a card is up the dimmer is the table's lid: clicking it puts the card back, and every
+      // other pointer event stops here too. Each handler has to say so itself — R3F walks *all* the
+      // objects under the cursor in depth order and only `stopPropagation()` ends the walk, so an
+      // `onClick` on its own left the felt behind it live: cards lit up on hover and a click landed
+      // on the dimmer and the card under it at once.
+      //
+      // With no handlers at all R3F leaves the plane out of hit testing entirely, which is exactly
+      // what a faded-out dimmer wants — hence every one of these is gated on `active`.
+      //
+      onPointerOver={active ? event => event.stopPropagation() : undefined}
+      onPointerMove={active ? event => event.stopPropagation() : undefined}
+      onPointerDown={active ? event => event.stopPropagation() : undefined}
+      onClick={
+        active
+          ? event => {
+              event.stopPropagation();
+              onDismiss();
+            }
+          : undefined
+      }
     >
-      <planeGeometry args={[plane.width, plane.height]} />
+      <planeGeometry args={[1, 1]} />
       <meshBasicMaterial ref={material} color="black" transparent opacity={0} depthWrite={false} />
     </mesh>
   );

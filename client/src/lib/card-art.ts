@@ -30,8 +30,24 @@ import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/lib/card-geometry';
 // `ART_CONCURRENCY` for the mechanism and the measurements; it is what the blank cards were.
 //
 
-/** The shared card back, from `public/cards/`. */
+/**
+ * The card backs, from `public/cards/`. Pistols' own collections are printed on the Pistols back;
+ * everything else on the table is a guest, and carries the plain one.
+ */
 export const CARD_BACK_URL = '/cards/card_back.png';
+export const CARD_BACK_ALT_URL = '/cards/card_back2.png';
+
+/** The game whose cards use {@link CARD_BACK_URL} — `contracts.json`'s `game`, not a display name. */
+const HOME_GAME = 'pistols';
+
+/**
+ * Which back a collection's cards are printed on, by its `game`.
+ *
+ * There are exactly two, so both are loaded and pinned up front (`CardTable`) and this only picks
+ * between them — a per-collection back would want a map in `contracts.json` instead.
+ */
+export const cardBackUrl = (game?: string): string =>
+  game === HOME_GAME ? CARD_BACK_URL : CARD_BACK_ALT_URL;
 
 /**
  * Height in texels every card face is rasterized to; the width follows from `CARD_ASPECT`.

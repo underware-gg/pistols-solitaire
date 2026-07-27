@@ -27,12 +27,36 @@ export function useController() {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
+  //
+  // Is a reconnect on its way? `StarknetConfig autoConnect` reconnects the last used Controller in a
+  // mount effect, and **this version of starknet-react never reports that**: `useAccount().status`
+  // is only `connected` | `disconnected`, so every page load reads as *disconnected* for as long as
+  // the keychain takes to answer. Left at that, the app tells a returning player they are logged out
+  // and their table owns nothing, then contradicts itself a moment later.
+  //
+  // So ask the same two questions their effect asks, in the same order: is the last used connector
+  // ours, and is it ready? A `true` here means a connect is already in flight on our behalf.
+  // `undefined` is the moment before we know, which is treated as connecting too — the answer is
+  // local (localStorage plus a keychain probe) and arrives immediately, and guessing "connected
+  // soon" is the guess that does not flash.
+  //
+  const { data: reconnecting } = useQuery({
+    queryKey: ['controller_reconnecting'],
+    queryFn: async () =>
+      localStorage.getItem('lastUsedConnector') === controllerConnector.id &&
+      (await controllerConnector.ready().catch(() => false)),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+
+  const isConnected = status === 'connected';
+
   return {
     account,
     address,
     username: username ?? undefined,
-    isConnected: status === 'connected',
-    isConnecting: isConnectPending || status === 'connecting' || status === 'reconnecting',
+    isConnected,
+    isConnecting: !isConnected && (isConnectPending || reconnecting !== false),
     connect: () => connect({ connector: controllerConnector }),
     disconnect: () => disconnect(),
     // Opens the Controller modal on one of its tabs.

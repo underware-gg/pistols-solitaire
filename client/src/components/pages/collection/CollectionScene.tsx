@@ -4,14 +4,16 @@ import { useRouter, useSelectedLayoutSegment } from 'next/navigation';
 import {
   createContext,
   type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { CardTable, type TableDeck } from '@/components/pages/collection/CardTable';
-import { gridPageSize } from '@/components/pages/collection/table-layout';
+import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/collection/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
 
@@ -78,19 +80,34 @@ export function CollectionScene({ children }: { children: ReactNode }) {
   const slug = useSelectedLayoutSegment();
   const { isLoading, balances } = useTokenBalances();
 
-  const [page, setPage] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
   const [zoomed, setZoomed] = useState<string | null>(null);
 
+  //
+  // How wide the deal is, from the shape of the table's own box. It is decided here rather than
+  // inside the canvas because the page size follows from it — which cards are on the felt is what
+  // the chrome pages through and the zoom steps along — and both have to agree on one number.
+  //
+  const table = useRef<HTMLElement>(null);
+  const columns = useGridColumns(table);
+
+  //
+  // Nothing is on the felt until the hand is known. While the Controller is still reconnecting there
+  // is no player to have a collection, and dealing the decks anyway would mean drawing eight empty
+  // slots — the table's way of saying "you own none of these" — at someone who owns hundreds.
+  //
   const decks = useMemo<TableDeck[]>(
     () =>
-      ERC721_TOKENS.map(token => ({
-        address: token.address,
-        game: token.game,
-        slug: token.slug,
-        name: token.name,
-        tokenIds: balances.erc721[token.address] ?? [],
-      })),
-    [balances],
+      isLoading
+        ? []
+        : ERC721_TOKENS.map(token => ({
+            address: token.address,
+            game: token.game,
+            slug: token.slug,
+            name: token.name,
+            tokenIds: balances.erc721[token.address] ?? [],
+          })),
+    [balances, isLoading],
   );
 
   //
@@ -101,13 +118,18 @@ export function CollectionScene({ children }: { children: ReactNode }) {
   const index = slug ? decks.findIndex(deck => deck.slug === slug) : -1;
   const selected = index >= 0 ? index : null;
   const deck = selected === null ? undefined : decks[selected];
-  const pages = deck ? Math.max(1, Math.ceil(deck.tokenIds.length / gridPageSize())) : 1;
+  const pages = deck ? Math.max(1, Math.ceil(deck.tokenIds.length / gridPageSize(columns))) : 1;
+
+  // Narrowing the window deals fewer cards at a time, so the page being read can fall off the end of
+  // a deck that has just grown shorter — clamped here rather than in `setPage`, since the count can
+  // change with no one having turned a page.
+  const page = Math.min(pageIndex, pages - 1);
 
   // The cards actually on the felt: the same slice the table deals, and the range the zoom steps in.
   const hand = useMemo(() => {
-    const size = gridPageSize();
+    const size = gridPageSize(columns);
     return deck ? deck.tokenIds.slice(page * size, (page + 1) * size) : [];
-  }, [deck, page]);
+  }, [deck, page, columns]);
 
   /** The zoom, moved along the dealt page and stopped at its ends. */
   const stepZoom = useCallback(
@@ -127,7 +149,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
   // and Forward buttons reset them too.
   //
   useEffect(() => {
-    setPage(0);
+    setPageIndex(0);
     setZoomed(null);
   }, [slug]);
 
@@ -163,7 +185,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
       pages,
       turnPage: delta => {
         setZoomed(null);
-        setPage(current => Math.min(pages - 1, Math.max(0, current + delta)));
+        setPageIndex(Math.min(pages - 1, Math.max(0, page + delta)));
       },
       hand,
       zoomed,
@@ -173,9 +195,10 @@ export function CollectionScene({ children }: { children: ReactNode }) {
   );
 
   return (
-    <main className="relative flex flex-1 flex-col overflow-hidden">
+    <main ref={table} className="relative flex flex-1 flex-col overflow-hidden">
       <CardTable
         decks={decks}
+        columns={columns}
         selected={selected}
         page={page}
         zoomed={zoomed}
@@ -193,4 +216,29 @@ export function CollectionScene({ children }: { children: ReactNode }) {
       </div>
     </main>
   );
+}
+
+//
+// How many cards wide to deal, watching the element the table is drawn in.
+//
+// Kept as a column *count* in state rather than the measured aspect: the count is what the layout
+// asks for, and it only changes at a handful of widths, so dragging a window edge re-renders the
+// scene on the frames that actually move a card and no others (React bails out of a `setState` that
+// does not change the value).
+//
+function useGridColumns(ref: RefObject<HTMLElement | null>): number {
+  const [columns, setColumns] = useState(TABLE.gridColumnsMax);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setColumns(gridColumnsFor(height > 0 ? width / height : 0));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return columns;
 }
