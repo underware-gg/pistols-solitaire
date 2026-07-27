@@ -3,7 +3,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useLayoutEffect, useRef } from 'react';
 import type * as THREE from 'three';
-import { applyPose, damp, type Pose, POSE_EULER_ORDER } from '@/lib/card-pose';
+import { applyPose, damp, type Pose, POSE_EULER_ORDER } from '@/engine/card-pose';
 
 //
 // Drives an object toward a target pose, one damped step per frame. Attach the returned ref to
@@ -20,6 +20,13 @@ import { applyPose, damp, type Pose, POSE_EULER_ORDER } from '@/lib/card-pose';
  * only stay behind it by damping at exactly this rate — see `zoomBackdropDepth`.
  */
 export const MOVE_LAMBDA = 7;
+/**
+ * The rate a *held* card moves at. Direct manipulation is the one case where the damping is felt as
+ * lag rather than as weight — at `MOVE_LAMBDA` a dragged card trails a visible distance behind the
+ * cursor — so a card under the pointer is pulled along an order of magnitude harder. Still damped
+ * rather than snapped, which is what keeps the rest of the run following the one being carried.
+ */
+export const GRAB_LAMBDA = 30;
 const TURN_LAMBDA = 6;
 const SCALE_LAMBDA = 9;
 
@@ -36,6 +43,8 @@ export const usePoseAnimation = (
     delay = 0,
     /** Whether the object arcs off the table while travelling. Cards do; a deck sliding aside does not. */
     lift = false,
+    /** How hard the object is pulled toward its target. `GRAB_LAMBDA` while a card is dragged. */
+    moveLambda = MOVE_LAMBDA,
   } = {},
 ) => {
   const ref = useRef<THREE.Group>(null);
@@ -71,9 +80,9 @@ export const usePoseAnimation = (
     const travel = lift ? Math.hypot(x - object.position.x, z - object.position.z) : 0;
     const arc = Math.min(travel * LIFT_PER_UNIT, LIFT_MAX);
 
-    object.position.x = damp(object.position.x, x, MOVE_LAMBDA, delta);
-    object.position.y = damp(object.position.y, y + arc, MOVE_LAMBDA, delta);
-    object.position.z = damp(object.position.z, z, MOVE_LAMBDA, delta);
+    object.position.x = damp(object.position.x, x, moveLambda, delta);
+    object.position.y = damp(object.position.y, y + arc, moveLambda, delta);
+    object.position.z = damp(object.position.z, z, moveLambda, delta);
 
     object.rotation.x = damp(object.rotation.x, pose.rotation[0], TURN_LAMBDA, delta);
     object.rotation.y = damp(object.rotation.y, pose.rotation[1], TURN_LAMBDA, delta);

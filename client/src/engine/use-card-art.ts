@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type * as THREE from 'three';
-import { loadCardArt } from '@/lib/card-art';
+import { type CardArtOptions, loadCardArt } from '@/engine/card-art';
 
 //
 // One card's art as a texture, or `undefined` until it is ready — the card renders its blank
@@ -10,13 +10,13 @@ import { loadCardArt } from '@/lib/card-art';
 //
 // This is the one fetch in the app that does not go through react-query, and deliberately so:
 // a texture is a GPU resource that has to be disposed on eviction, which is exactly what the
-// LRU in `lib/card-art.ts` does and what a query cache cannot. See `specs/NEXTJS_DATA_FLOW.md`
+// LRU in `card-art.ts` does and what a query cache cannot. See `specs/NEXTJS_DATA_FLOW.md`
 // §1 — the prohibition there is on fetching *app data* with `useEffect`, not on loading images.
 //
 
 export const useCardArt = (
   url?: string,
-  { background, pin = false }: { background?: string; pin?: boolean } = {},
+  { height, background, aspect, pixelated, pin }: CardArtOptions = {},
 ): THREE.Texture | undefined => {
   const [art, setArt] = useState<THREE.Texture>();
 
@@ -26,7 +26,7 @@ export const useCardArt = (
       return;
     }
     let cancelled = false;
-    loadCardArt(url, { background, pin })
+    loadCardArt(url, { height, background, aspect, pixelated, pin })
       .then(texture => {
         if (!cancelled) setArt(texture);
       })
@@ -34,7 +34,8 @@ export const useCardArt = (
     return () => {
       cancelled = true;
     };
-  }, [url, background, pin]);
+    // Every option is part of the cache key, so every option belongs in the dependencies.
+  }, [url, height, background, aspect, pixelated, pin]);
 
   return art;
 };

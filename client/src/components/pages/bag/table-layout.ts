@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { CARD_HEIGHT, CARD_THICKNESS, CARD_WIDTH } from '@/lib/card-geometry';
-import { FACE_DOWN, FACE_UP, type Pose } from '@/lib/card-pose';
+import { cameraAt as cameraAtDistance, fitDistance, visibleAt as visibleFrustum } from '@/engine';
+import { CARD_HEIGHT, CARD_THICKNESS, CARD_WIDTH } from '@/engine/card-geometry';
+import { FACE_DOWN, FACE_UP, type Pose } from '@/engine/card-pose';
 
 //
 // Every position on the table, as pure functions of the view.
@@ -303,29 +304,12 @@ export const gridPose = (index: number, columns: number): Pose => {
 };
 
 /**
- * The same place, turned over: back up, everything else untouched.
- *
- * **This is the flip**, and it is one number — the tilt. Sweeping it from `FACE_DOWN` to `FACE_UP`
- * passes through upright, so the card stands up, turns to the player and lies back down, and because
- * poses are damped toward, handing a card this pose instead of its face-up one *is* the animation.
- * Browsing does not use it (a collection is dealt art up, all at once, to be read); it is here for
- * the game — a hand dealt face down, cards turned over one at a time — via `Card3D`'s `faceDown`.
- */
-export const faceDownPose = (pose: Pose): Pose => ({
-  ...pose,
-  rotation: [FACE_DOWN, pose.rotation[1], pose.rotation[2]],
-});
-
-/**
  * Where the camera is when it has finished framing `view`, and which way it looks: along
  * `TABLE.direction`, at `cameraDistance`, aimed at the table's centre. Poses in front of the camera
  * are derived from *this* rather than from the live camera, so they are already correct while the
  * camera is still damping between two views.
  */
-const cameraAt = (distance: number) => {
-  const position = new THREE.Vector3(...TABLE.direction).normalize().multiplyScalar(distance);
-  return { position, view: position.clone().normalize().negate() };
-};
+const cameraAt = (distance: number) => cameraAtDistance(distance, TABLE.direction);
 
 /**
  * Which way is up on screen, in world space: world up with its component along the view removed.
@@ -336,10 +320,7 @@ const screenUp = (view: THREE.Vector3) =>
   new THREE.Vector3(0, 1, 0).addScaledVector(view, -view.y).normalize();
 
 /** How much of the frame a zoomed card takes: not the card, the card and the caption hanging off it. */
-const visibleAt = (fov: number, depth: number, aspect: number) => {
-  const height = 2 * Math.tan(radians(fov) / 2) * depth;
-  return { height, width: height * aspect };
-};
+const visibleAt = visibleFrustum;
 
 /**
  * The zoomed card and its caption as one box, in card units, measured from the card's own centre.
@@ -499,8 +480,4 @@ export const cameraDistance = (
   view: TableView,
   deckCount: number,
   columns: number,
-): number => {
-  const fit = fitHalfExtents(view, deckCount, columns);
-  const halfFov = Math.tan(radians(TABLE.fov) / 2);
-  return Math.max(fit.width / (halfFov * aspect), fit.height / halfFov);
-};
+): number => fitDistance(fitHalfExtents(view, deckCount, columns), aspect, TABLE.fov);

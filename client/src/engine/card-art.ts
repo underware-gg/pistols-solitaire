@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/lib/card-geometry';
+import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/engine/card-geometry';
 
 //
 // Card art as a WebGL texture: loaded, rasterized onto card stock, cached, and disposed.
 //
-// Both sources take the same path. The back is a PNG in `public/cards/`; the front is the
-// image Torii serves for the token (`tokenImageUrl()`), which for a Pistols token is a ~750KB
-// SVG with the artwork embedded in it. Neither can go straight to three's `TextureLoader`:
-// `card_back.png` is 2996×4197 (~50MB of VRAM at full size) and an SVG has no raster size at
-// all. So every image is drawn into a canvas at the size the table actually needs and
-// uploaded from there — `drawImage` with explicit dimensions rasterizes an SVG at exactly
-// that resolution.
+// Every source takes the same path. Torii serves a token's image (`tokenImageUrl()`), which for a
+// Pistols token is a ~750KB SVG with the artwork embedded in it; the token backs are PNGs in
+// `public/cards/`; the standard 52-card deck is 54 tiny PNGs in `public/deck/`. None of them can go
+// straight to three's `TextureLoader`: `card_back.png` is 2996×4197 (~50MB of VRAM at full size), an
+// SVG has no raster size at all, and a 50×75 pixel-art face needs to be magnified with the *right*
+// filter. So every image is drawn into a canvas at the size the table actually needs and uploaded
+// from there — `drawImage` with explicit dimensions rasterizes an SVG at exactly that resolution.
 //
-// Drawing also normalizes the shape: the canvas is always a 5:7 card face and the art is
-// centered inside it over card stock, so a collection whose art is square or 4:3 gets
-// letterboxed onto paper instead of stretched across the mesh. **What that letterbox is filled
-// with is the collection's own `background_color`** (`ContractsProvider`) rather than cream
-// paper, which is the whole difference between a square token reading as its artist intended and
-// reading as a stamp on the wrong card. It is part of the cache key, because two collections can
-// ask for the same art on different stock and must not share an entry.
+// Drawing also normalizes the shape: the canvas is a card face of the requested `aspect` and the art
+// is centered inside it over card stock, so a collection whose art is square or 4:3 gets letterboxed
+// onto paper instead of stretched across the mesh. **What that letterbox is filled with is the
+// collection's own `background_color`** (`ContractsProvider`) rather than cream paper, which is the
+// whole difference between a square token reading as its artist intended and reading as a stamp on
+// the wrong card. It is part of the cache key, because two collections can ask for the same art on
+// different stock and must not share an entry.
 //
 // The cache is an LRU with a hard cap, because a 500-card deck paged end to end would
 // otherwise upload gigabytes of texture and never let go. The cap is comfortably more than
@@ -27,7 +27,8 @@ import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/lib/card-geometry';
 //
 // Every fetch is **retried, and validated before it is believed** — Torii's image endpoint answers
 // 200 with an empty or truncated body often enough that most cards need a second ask. See
-// `ART_CONCURRENCY` for the mechanism and the measurements; it is what the blank cards were.
+// `ART_CONCURRENCY` for the mechanism and the measurements; it is what the blank cards were. Local
+// static assets go through the same code and simply succeed on the first attempt.
 //
 
 /**
@@ -64,11 +65,30 @@ export const CARD_ART_HEIGHT = 768;
  * How many rasterized faces to keep — **three grid pages**, so paging back and forth across a big
  * collection is instant instead of re-fetching through Torii's slow image endpoint. Must stay
  * comfortably above one page (20), or eviction would dispose a texture still on the felt.
+ *
+ * A whole 52-card deck plus its backs is pinned rather than counted against this (see `pin`): they
+ * are static local assets that are all on the table at once, so there is nothing to evict and no
+ * page to churn against.
  */
 const CACHE_LIMIT = 60;
 
 /** Fraction of the card face the art is drawn across, leaving a paper margin. */
 const ART_INSET = 1;
+
+/**
+ * How many times a pixel-art source is magnified when it is rasterized — **and it must be an
+ * integer**, which is the whole reason `pixelated` art does not simply use `CARD_ART_HEIGHT`.
+ *
+ * A 50×75 face blown up to 768 tall is 10.24×, so some source pixels would land 10 canvas pixels
+ * wide and others 11: nearest-neighbour magnification at a fractional scale produces a visibly
+ * uneven pixel grid, which on a card face full of straight rules and pips reads as a wobble. At an
+ * integer multiple every source pixel is exactly as wide as every other.
+ *
+ * 4× puts a 50×75 face at 200×300 — ~240KB of VRAM, so a full deck of 54 is ~13MB, and comfortably
+ * sharp for a card that is at most ~200px tall on screen at this camera. It is the sharpness/VRAM
+ * knob for the pixel decks, the way `CARD_ART_HEIGHT` is for token art.
+ */
+const PIXEL_UPSCALE = 4;
 
 type CacheEntry = {
   texture: Promise<THREE.Texture>;
@@ -215,14 +235,22 @@ const rasterize = async (
   url: string,
   height: number,
   background: string,
+  aspect: number,
+  pixelated: boolean,
 ): Promise<THREE.Texture> => {
   const image = await decodeArt(url);
 
   const canvas = document.createElement('canvas');
-  canvas.height = height;
-  canvas.width = Math.round(height * CARD_ASPECT);
+  // Pixel art is magnified by a whole number of its own pixels rather than to a fixed height — see
+  // `PIXEL_UPSCALE`. Falls back to the requested height if the image reports no size.
+  canvas.height =
+    pixelated && image.naturalHeight > 0 ? image.naturalHeight * PIXEL_UPSCALE : height;
+  canvas.width = Math.round(canvas.height * aspect);
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Card art needs a 2D context');
+  // Smoothing is what turns a magnified pixel into a gradient; off, every source pixel stays a
+  // hard-edged block, which is what the 50×75 deck is drawn to be seen as.
+  context.imageSmoothingEnabled = !pixelated;
   context.imageSmoothingQuality = 'high';
   context.fillStyle = background;
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -230,7 +258,7 @@ const rasterize = async (
   const ratio =
     image.naturalWidth > 0 && image.naturalHeight > 0
       ? image.naturalWidth / image.naturalHeight
-      : CARD_ASPECT;
+      : aspect;
   const scale = Math.min(canvas.width / ratio, canvas.height) * ART_INSET;
   const width = scale * ratio;
   context.drawImage(image, (canvas.width - width) / 2, (canvas.height - scale) / 2, width, scale);
@@ -238,6 +266,13 @@ const rasterize = async (
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8; // the renderer clamps this to the device maximum
+  //
+  // Nearest for *magnification* only. A card is at most a couple of hundred pixels tall on the felt,
+  // i.e. usually minified, and nearest minification of a dense pixel grid aliases and shimmers as
+  // the card moves — so the mipmap chain (the default `minFilter`) is deliberately left in place and
+  // only the magnification filter changes.
+  //
+  if (pixelated) texture.magFilter = THREE.NearestFilter;
   return texture;
 };
 
@@ -253,12 +288,32 @@ const evict = () => {
   }
 };
 
-/** The texture for one card face, rasterized on first use and cached by url, size and stock. */
+/** How a card face is drawn. Every field is part of the cache key. */
+export type CardArtOptions = {
+  /** Texels down the face, for smooth art. Ignored when `pixelated` — see `PIXEL_UPSCALE`. */
+  height?: number;
+  /** The stock the art is letterboxed onto, when it does not fill the face. */
+  background?: string;
+  /** The card's shape. Must match the mesh the texture goes on, or the art is stretched. */
+  aspect?: number;
+  /** Magnify with hard pixels instead of smoothing — for the 50×75 deck in `public/deck/`. */
+  pixelated?: boolean;
+  /** Never evict. For art that is on the table for the session: the backs, a whole small deck. */
+  pin?: boolean;
+};
+
+/** The texture for one card face, rasterized on first use and cached by url and every option. */
 export const loadCardArt = (
   url: string,
-  { height = CARD_ART_HEIGHT, background = CARD_PAPER_COLOR, pin = false } = {},
+  {
+    height = CARD_ART_HEIGHT,
+    background = CARD_PAPER_COLOR,
+    aspect = CARD_ASPECT,
+    pixelated = false,
+    pin = false,
+  }: CardArtOptions = {},
 ): Promise<THREE.Texture> => {
-  const key = `${url}@${height}@${background}`;
+  const key = `${url}@${height}@${background}@${aspect}@${pixelated}`;
   const cached = cache.get(key);
   if (cached) {
     cache.delete(key); // re-inserting moves it to the most-recently-used end
@@ -268,7 +323,7 @@ export const loadCardArt = (
 
   const entry: CacheEntry = {
     pinned: pin,
-    texture: rasterize(url, height, background).catch(error => {
+    texture: rasterize(url, height, background, aspect, pixelated).catch(error => {
       cache.delete(key); // a failure is not cached — the next card that needs it retries
       throw error;
     }),

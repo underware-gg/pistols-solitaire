@@ -5,28 +5,45 @@ import * as THREE from 'three';
 // with its faces cut into three material groups — front, back, and the paper edge around the
 // rim — so each takes its own material and its own texture.
 //
-// One geometry is shared by every card on the table. Cards differ only in their front
-// texture, so there is never a reason to build a second one, and nothing here needs a
-// browser: the module is import-safe on the server.
+// **One geometry per aspect ratio, shared by every card of that shape.** Cards differ only in their
+// front texture, so a table never needs more than one; `cardGeometry` memoizes per aspect because
+// the app deals two different decks — Torii's 5:7 token art and the 2:3 pixel deck in
+// `public/deck/` — and stretching either onto the other's mesh is visible immediately. Nothing here
+// needs a browser: the module is import-safe on the server.
 //
 
 /**
- * Card proportions. `public/cards/card_back.png` is 2996×4197 and the token art Torii serves
- * is 771×1080 — both 5:7, so the mesh, the back and the fronts all agree.
+ * Torii token art: `public/cards/card_back.png` is 2996×4197 and the token images are 771×1080 —
+ * both 5:7, so the mesh, the back and the fronts all agree.
  */
-export const CARD_ASPECT = 5 / 7;
-/** The card is one world unit tall; every distance on the table is expressed in card heights. */
+export const TOKEN_ASPECT = 5 / 7;
+/** The standard 52-card deck in `public/deck/`: every face and back is 50×75, i.e. exactly 2:3. */
+export const STANDARD_ASPECT = 2 / 3;
+
+/** The default shape, kept as the name the token table has always used. */
+export const CARD_ASPECT = TOKEN_ASPECT;
+
+/** The card is one world unit tall; every distance on every table is expressed in card heights. */
 export const CARD_HEIGHT = 1;
+/** Width of a default-aspect card. For any other shape use `cardWidth(aspect)`. */
 export const CARD_WIDTH = CARD_HEIGHT * CARD_ASPECT;
 export const CARD_THICKNESS = 0.008;
+
+/** How wide a card of the given aspect is, in card heights. */
+export const cardWidth = (aspect = CARD_ASPECT): number => CARD_HEIGHT * aspect;
 
 /** Card stock, for the rim and for a face whose art has not arrived (or does not fill it). */
 export const CARD_PAPER_COLOR = '#f2e7d3';
 /** A face that *has* art: white, so the material tints the texture by nothing at all. */
 export const CARD_ART_TINT = '#ffffff';
 
-/** The card's corner, in card units — exported so anything card-shaped rounds off the same way. */
-export const CARD_CORNER_RADIUS = CARD_WIDTH * 0.06;
+/**
+ * The card's corner, in card units — exported so anything card-shaped rounds off the same way.
+ * Proportional to the card's *width*, so a narrower card is not more rounded than a wide one.
+ */
+export const cardCornerRadius = (aspect = CARD_ASPECT): number => cardWidth(aspect) * 0.06;
+/** The default-aspect corner. Kept as a constant for the token table's own call sites. */
+export const CARD_CORNER_RADIUS = cardCornerRadius();
 const CORNER_SEGMENTS = 6;
 
 /** Material slot per face — the index into the card mesh's `material` array. */
@@ -59,8 +76,9 @@ export const buildCardGeometry = (
   width = CARD_WIDTH,
   height = CARD_HEIGHT,
   thickness = CARD_THICKNESS,
+  radius = width * 0.06,
 ): THREE.BufferGeometry => {
-  const geometry = new THREE.ExtrudeGeometry(cardShape(width, height, CARD_CORNER_RADIUS), {
+  const geometry = new THREE.ExtrudeGeometry(cardShape(width, height, radius), {
     depth: thickness,
     bevelEnabled: false,
     curveSegments: CORNER_SEGMENTS,
@@ -114,5 +132,26 @@ export const buildCardGeometry = (
   return geometry;
 };
 
-/** The one card geometry the whole table shares. */
-export const CARD_GEOMETRY = buildCardGeometry();
+//
+// One geometry per shape, built on first use and kept for the session. Keyed on the aspect alone
+// because height and thickness are the same for every card in the app — a table that wants thicker
+// cards should change `CARD_THICKNESS`, not build a second geometry behind this cache's back.
+//
+const geometries = new Map<number, THREE.BufferGeometry>();
+
+/** The shared card geometry for a given aspect ratio. */
+export const cardGeometry = (aspect = CARD_ASPECT): THREE.BufferGeometry => {
+  const cached = geometries.get(aspect);
+  if (cached) return cached;
+  const geometry = buildCardGeometry(
+    cardWidth(aspect),
+    CARD_HEIGHT,
+    CARD_THICKNESS,
+    cardCornerRadius(aspect),
+  );
+  geometries.set(aspect, geometry);
+  return geometry;
+};
+
+/** The token table's geometry, by the name it has always had. */
+export const CARD_GEOMETRY = cardGeometry(TOKEN_ASPECT);

@@ -2,18 +2,19 @@
 
 import { Html } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { Card3D } from '@/components/pages/bag/Card3D';
-import { Deck3D } from '@/components/pages/bag/Deck3D';
+import { useEffect, useRef, useState } from 'react';
+import type * as THREE from 'three';
 import {
   cameraDistance,
+  deckCardPose,
   deckParkedPose,
   deckPose,
   deckSweptPose,
   deckTopPose,
   gridPageSize,
   gridPose,
+  hoveredCardPose,
+  hoveredDeckPose,
   pilePose,
   TABLE,
   zoomBackdropDepth,
@@ -22,10 +23,8 @@ import {
 } from '@/components/pages/bag/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
 import { tokenImageUrl } from '@/dojo/torii';
-import { useCardArt } from '@/hooks/use-card-art';
-import { MOVE_LAMBDA } from '@/hooks/use-pose-animation';
-import { CARD_BACK_ALT_URL, CARD_BACK_URL, cardBackUrl } from '@/lib/card-art';
-import { damp } from '@/lib/card-pose';
+import { Card3D, damp, Deck3D, FitCamera, MOVE_LAMBDA, useCardArt } from '@/engine';
+import { CARD_BACK_ALT_URL, CARD_BACK_URL, cardBackUrl } from '@/engine/card-art';
 import { cn } from '@/lib/cn';
 
 //
@@ -69,8 +68,7 @@ const RETURN_MS = 900;
 const CAPTION_SCALE = 0.1;
 
 const BACKDROP_OPACITY = 0.55;
-/** Approach rates for the camera and the dimmer, in reciprocal seconds. */
-const CAMERA_LAMBDA = 5;
+/** Approach rate for the dimmer, in reciprocal seconds. The camera's own is in `FitCamera`. */
 const BACKDROP_LAMBDA = 7;
 
 export function CardTable({
@@ -208,7 +206,7 @@ function Table({
 
   return (
     <>
-      <FitCamera distance={distance} />
+      <FitCamera distance={distance} direction={TABLE.direction} fov={TABLE.fov} />
 
       {/* Light enough to read the art, angled enough that a card turning over catches it — every
        * number is in `TABLE`'s lighting block. */}
@@ -261,8 +259,10 @@ function Table({
           <Deck3D
             key={deck.address}
             label={deck.name}
-            count={deck.tokenIds.length}
-            remaining={remaining}
+            sublabel={String(deck.tokenIds.length || 'empty')}
+            cards={Math.min(TABLE.deckStack, remaining)}
+            cardPose={deckCardPose}
+            hoverPose={hoveredDeckPose}
             back={backFor(deck.game)}
             pose={
               selected === null
@@ -291,6 +291,7 @@ function Table({
               delay={open ? DEAL_DELAY + index * DEAL_STAGGER : 0}
               inHand={isZoomed}
               hoverable={!isZoomed}
+              hoverPose={hoveredCardPose}
               onClick={() => onZoom(isZoomed ? null : tokenId)}
             >
               {isZoomed && (
@@ -330,38 +331,6 @@ function Table({
       />
     </>
   );
-}
-
-//
-// Frames the table: the camera keeps the angle `TABLE.direction` gives it and backs off until the
-// current layout fits, so nothing is cropped on a narrow window and no felt is wasted on a wide
-// one. The distance is damped rather than set, which makes the pull-back part of opening a deck —
-// the decks are framed tightly on their own, and the table widens to take the dealt grid.
-//
-function FitCamera({ distance }: { distance: number }) {
-  const camera = useThree(state => state.camera) as THREE.PerspectiveCamera;
-  const direction = useMemo(() => new THREE.Vector3(...TABLE.direction).normalize(), []);
-  const current = useRef(0);
-
-  const place = (at: number) => {
-    current.current = at;
-    camera.position.copy(direction).multiplyScalar(at);
-    camera.lookAt(0, 0, 0);
-  };
-
-  // The first frame is already framed — only later changes are worth animating.
-  useLayoutEffect(() => {
-    camera.fov = TABLE.fov;
-    camera.updateProjectionMatrix();
-    place(distance);
-  }, [camera]);
-
-  useFrame((_, delta) => {
-    if (Math.abs(current.current - distance) < 0.001) return;
-    place(damp(current.current, distance, CAMERA_LAMBDA, Math.min(delta, 1 / 30)));
-  });
-
-  return null;
 }
 
 //
