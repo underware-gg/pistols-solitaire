@@ -25,7 +25,8 @@ export const CARD_PAPER_COLOR = '#f2e7d3';
 /** A face that *has* art: white, so the material tints the texture by nothing at all. */
 export const CARD_ART_TINT = '#ffffff';
 
-const CORNER_RADIUS = CARD_WIDTH * 0.06;
+/** The card's corner, in card units — exported so anything card-shaped rounds off the same way. */
+export const CARD_CORNER_RADIUS = CARD_WIDTH * 0.06;
 const CORNER_SEGMENTS = 6;
 
 /** Material slot per face — the index into the card mesh's `material` array. */
@@ -59,7 +60,7 @@ export const buildCardGeometry = (
   height = CARD_HEIGHT,
   thickness = CARD_THICKNESS,
 ): THREE.BufferGeometry => {
-  const geometry = new THREE.ExtrudeGeometry(cardShape(width, height, CORNER_RADIUS), {
+  const geometry = new THREE.ExtrudeGeometry(cardShape(width, height, CARD_CORNER_RADIUS), {
     depth: thickness,
     bevelEnabled: false,
     curveSegments: CORNER_SEGMENTS,

@@ -192,12 +192,31 @@ export const deckCardPose = (stackIndex: number): Pose => ({
   scale: 1,
 });
 
-/** Top of the parked pile, in world space: where a dealt card comes from and returns to. */
+/** Top of the parked pile, in world space: where a dealt card comes from. */
 export const pilePose = (): Pose => ({
   position: [pileX(), stackY(TABLE.deckStack), pileZ()],
   rotation: [FACE_DOWN, 0, 0],
   scale: TABLE.cardScale,
 });
+
+/**
+ * Top of a deck resting in the browsing layout — where a dealt card goes *home* to.
+ *
+ * Not `pilePose`: a closing deck is on its way back to its cell in the grid of decks, so cards that
+ * fly to the parked spot instead are flying to where the deck no longer is, and then vanish beside
+ * it. Aiming them here lands them on the deck they came out of, wherever it has got to.
+ *
+ * `stack` is how many cards that deck is *drawing* — a three-card deck is three cards tall, and a
+ * card returning to the nominal twelve would settle a visible hair above it.
+ */
+export const deckTopPose = (index: number, total: number, stack = TABLE.deckStack): Pose => {
+  const { x, z } = deckCell(index, total);
+  return {
+    position: [x, stackY(stack), z],
+    rotation: [FACE_DOWN, 0, 0],
+    scale: TABLE.deckScale,
+  };
+};
 
 /** A card's slot in the dealt grid, art up, by its index within the page. */
 export const gridPose = (index: number): Pose => {

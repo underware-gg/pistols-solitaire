@@ -15,9 +15,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 //--------------------------------
 // Types
 //
-// The felt the game is played on. The array is the cycle order used by `cycleTableColor`,
-// and each value has a matching `html[data-table='…']` block in `styles/main.css`.
-export const TABLE_COLORS = ['green', 'red', 'blue'] as const;
+// The felt the game is played on. The array is the cycle order used by `cycleTableColor`, and it
+// leads with the default; every value but that one has an `html[data-table='…']` block in
+// `styles/main.css` (the default is what `--color-ps-bg` already is, so it needs no block).
+export const TABLE_COLORS = ['red', 'green', 'blue'] as const;
 export type TableColor = (typeof TABLE_COLORS)[number];
 
 type SettingsState = {
@@ -30,7 +31,7 @@ type SettingsState = {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      tableColor: 'green',
+      tableColor: 'red',
       setTableColor: color => set({ tableColor: color }),
       cycleTableColor: () =>
         set({

@@ -49,6 +49,8 @@ export type TokenType = 'ERC20' | 'ERC721';
 /** One ERC-20/ERC-721 contract, as indexed by our Torii. */
 export type TokenContract = {
   game: string;
+  /** URL-safe id from `contracts.json`, unique per network — a collection's name in a route. */
+  slug: string;
   name: string;
   type: TokenType;
   address: string;
@@ -154,6 +156,7 @@ const pistolsAddresses = (networkId: NetworkId): Record<string, string> => {
 //
 type ContractsJsonEntry = {
   game: string;
+  slug: string;
   name: string;
   type: string;
   address: string;
@@ -169,6 +172,7 @@ const profileTokens = (chainName: ChainId, pistols: Record<string, string>): Tok
     .filter(entry => entry.enabled === true)
     .map(entry => ({
       game: entry.game,
+      slug: entry.slug,
       name: entry.name,
       type: entry.type as TokenType,
       address:

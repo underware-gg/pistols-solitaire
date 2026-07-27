@@ -31,7 +31,7 @@
   --ps-table-blue: #1f4478;
 
   /* Three knobs drive the whole palette: the table felt, the ink, the accent. */
-  --color-ps-bg: var(--ps-table-green); /* casino-table carpet — html/body background */
+  --color-ps-bg: var(--ps-table-red); /* casino-table carpet — html/body background */
   --color-ps-text: #ffffff; /* body text */
   --color-ps-accent: #f2c94c; /* interactive accent — chip yellow */
 
@@ -93,10 +93,10 @@
    * `color-mix()`es of `--color-ps-bg` declared on this same element, so they resolve
    * against the override and the whole app — panels, borders, shadows, the felt stamp —
    * moves with the felt. `SettingsProvider` sets the attribute from the settings store;
-   * green is the default and so needs no block of its own.
+   * red is the default and so needs no block of its own.
    */
-  html[data-table="red"] {
-    --color-ps-bg: var(--ps-table-red);
+  html[data-table="green"] {
+    --color-ps-bg: var(--ps-table-green);
   }
 
   html[data-table="blue"] {

@@ -11,6 +11,7 @@ import {
   deckParkedPose,
   deckPose,
   deckSweptPose,
+  deckTopPose,
   gridPageSize,
   gridPose,
   pilePose,
@@ -43,6 +44,8 @@ export type TableDeck = {
   /** Torii contract address — the deck's identity, and where its card art comes from. */
   address: string;
   game: string;
+  /** `contracts.json`'s slug: how this deck is named in the URL. */
+  slug: string;
   name: string;
   /** Every token id owned in this collection, ascending. Only a page of them is ever dealt. */
   tokenIds: string[];
@@ -75,6 +78,7 @@ export function CardTable({
   zoomed,
   onSelect,
   onZoom,
+  onTurnPage,
   className,
 }: {
   decks: TableDeck[];
@@ -86,6 +90,8 @@ export function CardTable({
   zoomed: string | null;
   onSelect: (index: number | null) => void;
   onZoom: (tokenId: string | null) => void;
+  /** Pages the open deck, by a signed number of pages — the same call the page chrome makes. */
+  onTurnPage: (delta: number) => void;
   className?: string;
 }) {
   return (
@@ -106,6 +112,7 @@ export function CardTable({
           zoomed={zoomed}
           onSelect={onSelect}
           onZoom={onZoom}
+          onTurnPage={onTurnPage}
         />
       </Canvas>
     </div>
@@ -119,6 +126,7 @@ function Table({
   zoomed,
   onSelect,
   onZoom,
+  onTurnPage,
 }: {
   decks: TableDeck[];
   selected: number | null;
@@ -126,6 +134,7 @@ function Table({
   zoomed: string | null;
   onSelect: (index: number | null) => void;
   onZoom: (tokenId: string | null) => void;
+  onTurnPage: (delta: number) => void;
 }) {
   const viewport = useThree(state => state.size);
   const back = useCardArt(CARD_BACK_URL, { pin: true });
@@ -158,6 +167,18 @@ function Table({
 
   const size = gridPageSize();
   const hand = dealt ? dealt.tokenIds.slice(page * size, (page + 1) * size) : [];
+
+  //
+  // Where the hand goes when the deck closes: the top of that deck, back in the browsing layout.
+  // Not the parked pile — by the time the cards arrive the deck has slid home, so they would land
+  // beside it and blink out. The deck being shown is `dealt`, which outlives `selected` by exactly
+  // the return, so the cards have somewhere to aim for the whole way.
+  //
+  const dealtIndex = dealt ? decks.findIndex(deck => deck.address === dealt.address) : -1;
+  const home =
+    dealtIndex < 0 || !dealt
+      ? pile
+      : deckTopPose(dealtIndex, decks.length, Math.min(TABLE.deckStack, dealt.tokenIds.length));
 
   // The open collection's own stock. Undefined lets Card3D fall back to cream paper.
   const meta = useContractMeta(dealt?.address);
@@ -192,23 +213,47 @@ function Table({
         <shadowMaterial transparent opacity={0.32} />
       </mesh>
 
-      {decks.map((deck, index) => (
-        <Deck3D
-          key={deck.address}
-          label={deck.name}
-          count={deck.tokenIds.length}
-          back={back}
-          pose={
-            selected === null
-              ? deckPose(index, decks.length)
-              : index === selected
-                ? deckParkedPose()
-                : deckSweptPose(index, decks.length)
-          }
-          visible={selected === null || index === selected}
-          onSelect={() => onSelect(index)}
-        />
-      ))}
+      {decks.map((deck, index) => {
+        // The dealt page is out on the felt, so it is out of the pile too — and a deck whose last
+        // page is dealt has nothing left to draw, which is what the empty slot says.
+        const remaining =
+          index === selected
+            ? Math.max(0, deck.tokenIds.length - (page + 1) * size)
+            : deck.tokenIds.length;
+        //
+        // What a click does, and only the table can say — the open deck is a pile you deal from:
+        // with cards left in it, clicking deals the next page; emptied, clicking is the space the
+        // cards came out of, so it puts them back (the same close as Escape or Back, animation and
+        // all). A deck that is not open opens, and a collection with no cards at all is inert:
+        // `Deck3D` takes no handler rather than being told it is disabled.
+        //
+        const isOpen = index === selected;
+        const click = isOpen
+          ? remaining > 0
+            ? () => onTurnPage(1)
+            : () => onSelect(null)
+          : remaining > 0
+            ? () => onSelect(index)
+            : undefined;
+        return (
+          <Deck3D
+            key={deck.address}
+            label={deck.name}
+            count={deck.tokenIds.length}
+            remaining={remaining}
+            back={back}
+            pose={
+              selected === null
+                ? deckPose(index, decks.length)
+                : index === selected
+                  ? deckParkedPose()
+                  : deckSweptPose(index, decks.length)
+            }
+            visible={selected === null || index === selected}
+            onSelect={click}
+          />
+        );
+      })}
 
       {dealt &&
         hand.map((tokenId, index) => {
@@ -219,7 +264,7 @@ function Table({
               frontUrl={tokenImageUrl(dealt.address, tokenId)}
               back={back}
               background={background}
-              pose={open ? (isZoomed ? zoom : gridPose(index)) : pile}
+              pose={open ? (isZoomed ? zoom : gridPose(index)) : home}
               initial={pile}
               delay={open ? DEAL_DELAY + index * DEAL_STAGGER : 0}
               hoverable={!isZoomed}

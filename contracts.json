@@ -21,6 +21,7 @@
     "contracts": [
       {
         "game": "realms",
+        "slug": "lords",
         "name": "lords",
         "type": "ERC20",
         "address": "0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49",
@@ -29,6 +30,7 @@
       },
       {
         "game": "realms",
+        "slug": "realms",
         "name": "Realms",
         "type": "ERC721",
         "address": "0x07ae27a31bb6526e3de9cf02f081f6ce0615ac12a6d7b85ee58b8ad7947a2809",
@@ -37,6 +39,7 @@
       },
       {
         "game": "pistols",
+        "slug": "fame",
         "name": "Fame",
         "type": "ERC20",
         "address": "0x2549653a4ae1ff8d04a20b8820a49cbe97486c536ec0e4c8f68aa33d80067cf",
@@ -45,6 +48,7 @@
       },
       {
         "game": "pistols",
+        "slug": "fools",
         "name": "Fools",
         "type": "ERC20",
         "address": "0x68a7a07e08fc3e723a878223d00f669106780d5ea6665eb15d893476d47bf3b",
@@ -53,6 +57,7 @@
       },
       {
         "game": "pistols",
+        "slug": "duels",
         "name": "Duels",
         "type": "ERC721",
         "address": "0x2e9c711b1a7e2784570b1bda5082a92606044e836ba392d2b977d280fb74b3c",
@@ -61,6 +66,7 @@
       },
       {
         "game": "pistols",
+        "slug": "duelists",
         "name": "Duelists",
         "type": "ERC721",
         "address": "0x7aaa9866750a0db82a54ba8674c38620fa2f967d2fbb31133def48e0527c87f",
@@ -69,6 +75,7 @@
       },
       {
         "game": "pistols",
+        "slug": "packs",
         "name": "Packs",
         "type": "ERC721",
         "address": "0x71333ac75b7d5ba89a2d0c2b67d5b955258a4d46eb42f3428da6137bbbfdfd9",
@@ -77,6 +84,7 @@
       },
       {
         "game": "pistols",
+        "slug": "rings",
         "name": "Rings",
         "bgColor": "#1e1212",
         "type": "ERC721",
@@ -86,6 +94,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "karat",
         "name": "Karat",
         "bgColor": "#000000",
         "type": "ERC721",
@@ -95,6 +104,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "karat2",
         "name": "Karat G2",
         "type": "ERC721",
         "address": "0x30f694df2a04e04cf3e1d3e79dd5aadfdaa77295bb007696222fc60a5e8730d",
@@ -103,6 +113,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "bauhash",
         "name": "Bauhash",
         "type": "ERC721",
         "address": "0x7b973b93f0224a07d1874966736c83cc5e47b9c14490dc0b4717417cac6099c",
@@ -111,6 +122,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "astraea",
         "name": "Astraea",
         "type": "ERC721",
         "address": "0x191e5a4490bf246a9acd76d17bd2e3eb208eb7f5c0795dc4848f338b2e27277",
@@ -119,6 +131,7 @@
       },
       {
         "game": "loot-survivor",
+        "slug": "goldentoken",
         "name": "Golden Token",
         "type": "ERC721",
         "address": "0x027838dea749f41c6f8a44fcfa791788e6101080c1b3cd646a361f653ad10e2d",
@@ -127,6 +140,7 @@
       },
       {
         "game": "loot-survivor",
+        "slug": "beasts",
         "name": "Beasts",
         "type": "ERC721",
         "address": "0x046da8955829adf2bda310099a0063451923f02e648cf25a1203aac6335cf0e4",
@@ -157,6 +171,7 @@
     "contracts": [
       {
         "game": "realms",
+        "slug": "lords",
         "name": "lords",
         "type": "ERC20",
         "address": "0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210",
@@ -165,6 +180,7 @@
       },
       {
         "game": "pistols",
+        "slug": "duels",
         "name": "Duels",
         "type": "ERC721",
         "address": "0x2e9c711b1a7e2784570b1bda5082a92606044e836ba392d2b977d280fb74b3c",
@@ -173,7 +189,8 @@
       },
       {
         "game": "pistols",
-        "name": "Dueliss",
+        "slug": "duelists",
+        "name": "Duelists",
         "type": "ERC721",
         "address": "0x7aaa9866750a0db82a54ba8674c38620fa2f967d2fbb31133def48e0527c87f",
         "block": 744979,
@@ -181,6 +198,7 @@
       },
       {
         "game": "pistols",
+        "slug": "packs",
         "name": "Packs",
         "type": "ERC721",
         "address": "0x71333ac75b7d5ba89a2d0c2b67d5b955258a4d46eb42f3428da6137bbbfdfd9",
@@ -189,6 +207,7 @@
       },
       {
         "game": "pistols",
+        "slug": "rings",
         "name": "Rings",
         "bgColor": "#1e1212",
         "type": "ERC721",
@@ -198,6 +217,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "karat",
         "name": "Karat",
         "bgColor": "#000000",
         "type": "ERC721",
@@ -207,6 +227,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "karat2",
         "name": "Karat G2",
         "type": "ERC721",
         "address": "0x70ea289f608f37e2ee38e8a5a5e1cd9203e7666db36714d20382b73302308e5",
@@ -215,6 +236,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "bauhash",
         "name": "Bauhash",
         "type": "ERC721",
         "address": "0x409c3d52b915f270f2770338d2d9d7d10d14e17d2d2a62f2999a7ff802c09ca",
@@ -223,6 +245,7 @@
       },
       {
         "game": "collect-code",
+        "slug": "astraea",
         "name": "Astraea",
         "type": "ERC721",
         "address": "0x5bb54b047419c975c3be4e2cd5ad3df6084f5df96008182c214a78bd694f61e",
