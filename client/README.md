@@ -31,7 +31,7 @@ with every variant/size/state on one page, plus a controls-driven `Playground`.
 
 `src/app/` = only what Next.js requires (`layout.tsx`, `page.tsx`, later `api/`, `actions/`); routes just mount a component (`page.tsx` → `<HomePage />`). Everything else lives in `src/components/`:
 
-- `src/components/pages/<page>/` — one folder per page: the page component plus every component used only by that page (`pages/home/HomePage.tsx`, `pages/collection/CollectionPage.tsx`).
+- `src/components/pages/<page>/` — one folder per page: the page component plus every component used only by that page (`pages/home/HomePage.tsx`, `pages/bag/BagPage.tsx`).
 - `src/components/` root — generic, cross-page components (`Header.tsx`, `ControllerButton.tsx`, `NavigationCard.tsx`, `TokensPanel.tsx`); `src/components/ui/` — style primitives; `src/components/providers/` — providers.
 - `Header` is mounted in `app/layout.tsx`, so it is on every page; page `<main>`s use `flex-1`, not `min-h-screen`.
 

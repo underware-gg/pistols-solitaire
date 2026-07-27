@@ -3,7 +3,7 @@
 import { useCursor } from '@react-three/drei';
 import { type ReactNode, useState } from 'react';
 import { AlwaysDepth, LessEqualDepth, type Texture } from 'three';
-import { faceDownPose, hoveredCardPose } from '@/components/pages/collection/table-layout';
+import { faceDownPose, hoveredCardPose } from '@/components/pages/bag/table-layout';
 import { useCardArt } from '@/hooks/use-card-art';
 import { usePoseAnimation } from '@/hooks/use-pose-animation';
 import { CARD_ART_TINT, CARD_FACE, CARD_GEOMETRY, CARD_PAPER_COLOR } from '@/lib/card-geometry';

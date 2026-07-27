@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { ContractPage } from '@/components/pages/collection/ContractPage';
+import { ContractPage } from '@/components/pages/bag/ContractPage';
 import { PROFILE } from '@/dojo/config';
 
 //
-// One collection, named by its `contracts.json` slug. The deck itself is opened by `CollectionScene`
+// One collection, named by its `contracts.json` slug. The deck itself is opened by `BagScene`
 // (which reads the same slug off the URL); all this route does is refuse a slug no collection on
 // this network answers to, rather than showing an empty table at a working URL.
 //

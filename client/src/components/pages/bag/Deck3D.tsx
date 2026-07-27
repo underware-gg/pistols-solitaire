@@ -4,7 +4,7 @@ import { Html, useCursor } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import { type ReactNode, useMemo, useState } from 'react';
 import type * as THREE from 'three';
-import { deckCardPose, hoveredDeckPose, TABLE } from '@/components/pages/collection/table-layout';
+import { deckCardPose, hoveredDeckPose, TABLE } from '@/components/pages/bag/table-layout';
 import { usePoseAnimation } from '@/hooks/use-pose-animation';
 import {
   CARD_ART_TINT,

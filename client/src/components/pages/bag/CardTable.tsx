@@ -4,8 +4,8 @@ import { Html } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Card3D } from '@/components/pages/collection/Card3D';
-import { Deck3D } from '@/components/pages/collection/Deck3D';
+import { Card3D } from '@/components/pages/bag/Card3D';
+import { Deck3D } from '@/components/pages/bag/Deck3D';
 import {
   cameraDistance,
   deckParkedPose,
@@ -19,7 +19,7 @@ import {
   zoomBackdropDepth,
   zoomBackdropPlane,
   zoomPose,
-} from '@/components/pages/collection/table-layout';
+} from '@/components/pages/bag/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
 import { tokenImageUrl } from '@/dojo/torii';
 import { useCardArt } from '@/hooks/use-card-art';
@@ -38,7 +38,7 @@ import { cn } from '@/lib/cn';
 // re-tints the felt under a live 3D scene without the scene knowing a colour exists.
 //
 // The component is fully controlled: which deck is open, which page, which card is zoomed all come
-// in as props, so the DOM chrome in `CollectionPage` and the scene can never disagree about the
+// in as props, so the DOM chrome in `BagPage` and the scene can never disagree about the
 // view. Poses come from `table-layout.ts`, the travel from `usePoseAnimation`.
 //
 

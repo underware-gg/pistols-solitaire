@@ -12,33 +12,33 @@ import {
   useRef,
   useState,
 } from 'react';
-import { CardTable, type TableDeck } from '@/components/pages/collection/CardTable';
-import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/collection/table-layout';
+import { CardTable, type TableDeck } from '@/components/pages/bag/CardTable';
+import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/bag/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
 
 //
-// The table itself, mounted once for every `/collection*` route, and the view state that goes with
-// it. `CollectionPage` and `ContractPage` are the chrome laid over it — see `children` below.
+// The table itself, mounted once for every `/bag*` route, and the view state that goes with
+// it. `BagPage` and `ContractPage` are the chrome laid over it — see `children` below.
 //
 // **Why this is the layout and not part of a page**: which deck is open is in the URL now, so
-// `/collection` and `/collection/karat` are sibling route segments and Next unmounts one page
+// `/bag` and `/bag/karat` are sibling route segments and Next unmounts one page
 // component to mount the other. A canvas that unmounts loses its WebGL context, and with it every
 // animation this table is built on — the decks would appear already swept aside, the camera already
-// pulled back, and the return to the table would be a cut. Mounted from `app/collection/layout.tsx`
+// pulled back, and the return to the table would be a cut. Mounted from `app/bag/layout.tsx`
 // it simply stays, and a route change is one prop moving, which is exactly what the poses damp
 // toward. So the scene lives above the pages, and the pages read it back through
-// {@link useCollectionView}.
+// {@link useBagView}.
 //
 // The open deck is read from the URL rather than held in state: `useSelectedLayoutSegment()` gives
-// the child segment, i.e. the slug, or null on `/collection`. That makes a deck linkable, the
+// the child segment, i.e. the slug, or null on `/bag`. That makes a deck linkable, the
 // browser's Back button the way out of a deck, and this component's only real state the two things
 // no one would want in a URL — which page of a big deck is dealt, and which card is in the air.
 //
 
 const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
 
-type CollectionView = {
+type BagView = {
   /** Every collection, in table order, whether or not the account holds any of it. */
   decks: TableDeck[];
   /** The open deck, if the URL names one we know. */
@@ -61,21 +61,21 @@ type CollectionView = {
   stepZoom: (delta: number) => void;
 };
 
-const CollectionContext = createContext<CollectionView | undefined>(undefined);
+const BagContext = createContext<BagView | undefined>(undefined);
 
-/** The table's view state, for the chrome drawn over it. Throws outside `<CollectionScene>`. */
-export function useCollectionView(): CollectionView {
-  const context = useContext(CollectionContext);
+/** The table's view state, for the chrome drawn over it. Throws outside `<BagScene>`. */
+export function useBagView(): BagView {
+  const context = useContext(BagContext);
   if (context === undefined) {
-    throw new Error('useCollectionView must be used within a <CollectionScene>');
+    throw new Error('useBagView must be used within a <BagScene>');
   }
   return context;
 }
 
-/** Route of the deck a slug names. The one place `/collection/<slug>` is spelled out. */
-export const deckHref = (slug: string): string => `/collection/${slug}`;
+/** Route of the deck a slug names. The one place `/bag/<slug>` is spelled out. */
+export const deckHref = (slug: string): string => `/bag/${slug}`;
 
-export function CollectionScene({ children }: { children: ReactNode }) {
+export function BagScene({ children }: { children: ReactNode }) {
   const router = useRouter();
   const slug = useSelectedLayoutSegment();
   const { isLoading, balances } = useTokenBalances();
@@ -112,7 +112,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
 
   //
   // The table lays decks out by position, so it wants an index; the URL names one. An unknown slug
-  // resolves to no deck at all, which is the same view as `/collection` — the route validates the
+  // resolves to no deck at all, which is the same view as `/bag` — the route validates the
   // slug and 404s, so this only shows for the frame before that lands.
   //
   const index = slug ? decks.findIndex(deck => deck.slug === slug) : -1;
@@ -163,7 +163,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (zoomed) setZoomed(null);
-        else if (slug) router.push('/collection');
+        else if (slug) router.push('/bag');
         return;
       }
       if (!zoomed) return;
@@ -176,7 +176,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [zoomed, slug, router, stepZoom]);
 
-  const view = useMemo<CollectionView>(
+  const view = useMemo<BagView>(
     () => ({
       decks,
       deck,
@@ -202,9 +202,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
         selected={selected}
         page={page}
         zoomed={zoomed}
-        onSelect={target =>
-          router.push(target === null ? '/collection' : deckHref(decks[target].slug))
-        }
+        onSelect={target => router.push(target === null ? '/bag' : deckHref(decks[target].slug))}
         onZoom={setZoomed}
         onTurnPage={view.turnPage}
       />
@@ -212,7 +210,7 @@ export function CollectionScene({ children }: { children: ReactNode }) {
       {/* The chrome, from whichever page is mounted. Inert by default so every pixel of felt stays
        * clickable — each control turns its own pointer events back on. */}
       <div className="pointer-events-none relative z-10 flex flex-1 flex-col p-6">
-        <CollectionContext.Provider value={view}>{children}</CollectionContext.Provider>
+        <BagContext.Provider value={view}>{children}</BagContext.Provider>
       </div>
     </main>
   );
