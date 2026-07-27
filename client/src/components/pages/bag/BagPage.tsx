@@ -4,8 +4,10 @@ import { ChevronLeft, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 // import { useBagView } from '@/components/pages/bag/BagScene';
 import { Button } from '@/components/ui/Button';
+import { SegmentedControl, type SegmentedOption } from '@/components/ui/SegmentedControl';
 import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
+import { type GameFilter, useSettingsStore } from '@/stores/settings-store';
 
 //
 // The `/bag` route: every ERC-721 collection the account holds, as a deck on the felt.
@@ -16,13 +18,22 @@ import { cn } from '@/lib/cn';
 // between the two routes; read that file before moving anything up or down.
 //
 
+// Which collections come to the table. The setting is the player's, so it lives in the settings
+// store and outlives the visit; the table reads it back in `BagScene`.
+const GAME_OPTIONS: SegmentedOption<GameFilter>[] = [
+  { value: 'pistols', label: 'Pistols Only' },
+  { value: 'all', label: 'All Games' },
+];
+
 export function BagPage({ className }: { className?: string }) {
   const router = useRouter();
   const { isConnected, isConnecting, connect } = useController();
+  const gameFilter = useSettingsStore(s => s.gameFilter);
+  const setGameFilter = useSettingsStore(s => s.setGameFilter);
   // const { isLoading } = useBagView();
 
   return (
-    <div className={cn('flex items-start gap-4', className)}>
+    <div className={cn('flex items-start gap-6', className)}>
       {/* One level up from the table, in the same spot `ContractPage` puts its way out of a deck —
        * so backing out of a deck and then off the table is the same button twice. */}
       <Button
@@ -47,6 +58,16 @@ export function BagPage({ className }: { className?: string }) {
           <Wallet className="size-4" />
           {isConnecting ? 'Connecting…' : 'Connect'}
         </Button>
+      )}
+
+      {isConnected && (
+        <SegmentedControl
+          className="pointer-events-auto ml-auto"
+          label="Which collections"
+          options={GAME_OPTIONS}
+          value={gameFilter}
+          onChange={setGameFilter}
+        />
       )}
     </div>
   );

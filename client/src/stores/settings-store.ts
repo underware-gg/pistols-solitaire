@@ -21,11 +21,18 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 export const TABLE_COLORS = ['red', 'green', 'blue'] as const;
 export type TableColor = (typeof TABLE_COLORS)[number];
 
+// Which collections come to the table: this game's own, or every game we index.
+export const GAME_FILTERS = ['pistols', 'all'] as const;
+export type GameFilter = (typeof GAME_FILTERS)[number];
+
 type SettingsState = {
   // Table felt colour
   tableColor: TableColor;
   setTableColor: (color: TableColor) => void;
   cycleTableColor: () => void;
+  // Which games' collections are dealt onto the table
+  gameFilter: GameFilter;
+  setGameFilter: (filter: GameFilter) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -38,6 +45,8 @@ export const useSettingsStore = create<SettingsState>()(
           tableColor:
             TABLE_COLORS[(TABLE_COLORS.indexOf(get().tableColor) + 1) % TABLE_COLORS.length],
         }),
+      gameFilter: 'pistols',
+      setGameFilter: filter => set({ gameFilter: filter }),
     }),
     {
       name: 'ps-settings',

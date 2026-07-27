@@ -16,6 +16,7 @@ import { CardTable, type TableDeck } from '@/components/pages/bag/CardTable';
 import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/bag/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
+import { useSettingsStore } from '@/stores/settings-store';
 
 //
 // The table itself, mounted once for every `/bag*` route, and the view state that goes with
@@ -37,6 +38,9 @@ import { PROFILE } from '@/dojo/config';
 //
 
 const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
+
+/** The game whose table this is — the one collection set the `pistols` filter keeps. */
+const HOME_GAME = 'pistols';
 
 type BagView = {
   /** Every collection, in table order, whether or not the account holds any of it. */
@@ -79,6 +83,7 @@ export function BagScene({ children }: { children: ReactNode }) {
   const router = useRouter();
   const slug = useSelectedLayoutSegment();
   const { isLoading, balances } = useTokenBalances();
+  const gameFilter = useSettingsStore(s => s.gameFilter);
 
   const [pageIndex, setPageIndex] = useState(0);
   const [zoomed, setZoomed] = useState<string | null>(null);
@@ -96,18 +101,29 @@ export function BagScene({ children }: { children: ReactNode }) {
   // is no player to have a collection, and dealing the decks anyway would mean drawing eight empty
   // slots — the table's way of saying "you own none of these" — at someone who owns hundreds.
   //
+  // Which collections are on the felt at all — the player's `gameFilter`, except that the deck the
+  // URL names always stays. A link into another game's deck is a legitimate way onto this table, and
+  // filtering it away would leave `ContractPage` titling an empty felt.
+  const tokens = useMemo(
+    () =>
+      gameFilter === 'all'
+        ? ERC721_TOKENS
+        : ERC721_TOKENS.filter(token => token.game === HOME_GAME || token.slug === slug),
+    [gameFilter, slug],
+  );
+
   const decks = useMemo<TableDeck[]>(
     () =>
       isLoading
         ? []
-        : ERC721_TOKENS.map(token => ({
+        : tokens.map(token => ({
             address: token.address,
             game: token.game,
             slug: token.slug,
             name: token.name,
             tokenIds: balances.erc721[token.address] ?? [],
           })),
-    [balances, isLoading],
+    [balances, isLoading, tokens],
   );
 
   //
