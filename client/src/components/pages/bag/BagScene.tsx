@@ -20,7 +20,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 
 //
 // The table itself, mounted once for every `/bag*` route, and the view state that goes with
-// it. `BagPage` and `ContractPage` are the chrome laid over it — see `children` below.
+// it. `BagPage` and `TokenCardsPage` are the chrome laid over it — see `children` below.
 //
 // **Why this is the layout and not part of a page**: which deck is open is in the URL now, so
 // `/bag` and `/bag/karat` are sibling route segments and Next unmounts one page
@@ -103,7 +103,7 @@ export function BagScene({ children }: { children: ReactNode }) {
   //
   // Which collections are on the felt at all — the player's `gameFilter`, except that the deck the
   // URL names always stays. A link into another game's deck is a legitimate way onto this table, and
-  // filtering it away would leave `ContractPage` titling an empty felt.
+  // filtering it away would leave `TokenCardsPage` titling an empty felt.
   const tokens = useMemo(
     () =>
       gameFilter === 'all'

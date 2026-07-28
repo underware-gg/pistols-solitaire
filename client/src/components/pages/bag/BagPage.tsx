@@ -11,9 +11,9 @@ import { type GameFilter, useSettingsStore } from '@/stores/settings-store';
 
 //
 // The `/bag` route: every ERC-721 collection the account holds, as a deck on the felt.
-// Picking one goes to `/bag/<slug>` — see `ContractPage`.
+// Picking one goes to `/bag/<slug>` — see `TokenCardsPage`.
 //
-// This is only the chrome. The table, and the state it shares with `ContractPage`, are in
+// This is only the chrome. The table, and the state it shares with `TokenCardsPage`, are in
 // `BagScene`, mounted by `app/bag/layout.tsx` so the canvas survives the navigation
 // between the two routes; read that file before moving anything up or down.
 //
@@ -34,7 +34,7 @@ export function BagPage({ className }: { className?: string }) {
 
   return (
     <div className={cn('flex items-start gap-6', className)}>
-      {/* One level up from the table, in the same spot `ContractPage` puts its way out of a deck —
+      {/* One level up from the table, in the same spot `TokenCardsPage` puts its way out of a deck —
        * so backing out of a deck and then off the table is the same button twice. */}
       <Button
         variant="ghost"

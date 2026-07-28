@@ -18,7 +18,7 @@ import { cn } from '@/lib/cn';
 // Escape (handled in the scene, since it is global).
 //
 
-export function ContractPage({ className }: { className?: string }) {
+export function TokenCardsPage({ className }: { className?: string }) {
   const router = useRouter();
   const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useBagView();
 

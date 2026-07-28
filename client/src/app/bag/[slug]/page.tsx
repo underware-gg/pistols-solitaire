@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { ContractPage } from '@/components/pages/bag/ContractPage';
+import { TokenCardsPage } from '@/components/pages/bag/TokenCardsPage';
 import { PROFILE } from '@/dojo/config';
 
 //
@@ -20,5 +20,5 @@ export function generateStaticParams() {
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!SLUGS.has(slug)) notFound();
-  return <ContractPage />;
+  return <TokenCardsPage />;
 }
