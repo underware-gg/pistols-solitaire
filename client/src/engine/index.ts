@@ -33,6 +33,7 @@ export {
 export {
   CARD_ART_TINT,
   CARD_ASPECT,
+  CARD_EDGE_COLOR,
   CARD_FACE,
   CARD_GEOMETRY,
   CARD_HEIGHT,
@@ -71,6 +72,6 @@ export {
   type Suit,
   SUITS,
 } from '@/engine/standard-deck';
-export { useCardArt } from '@/engine/use-card-art';
+export { type CardArtState, useCardArt, useCardArtState } from '@/engine/use-card-art';
 export { type CardDrag, useCardDrag } from '@/engine/use-card-drag';
 export { GRAB_LAMBDA, MOVE_LAMBDA, usePoseAnimation } from '@/engine/use-pose-animation';

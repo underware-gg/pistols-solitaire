@@ -8,12 +8,13 @@ import { CARD_ART_HEIGHT } from '@/engine/card-art';
 import {
   CARD_ART_TINT,
   CARD_ASPECT,
+  CARD_EDGE_COLOR,
   CARD_FACE,
   CARD_PAPER_COLOR,
   cardGeometry,
 } from '@/engine/card-geometry';
 import { faceDownPose, type Pose } from '@/engine/card-pose';
-import { useCardArt } from '@/engine/use-card-art';
+import { useCardArtState } from '@/engine/use-card-art';
 import { GRAB_LAMBDA, usePoseAnimation } from '@/engine/use-pose-animation';
 
 //
@@ -45,6 +46,7 @@ export function Card3D({
   initial,
   delay = 0,
   faceDown = false,
+  revealOnLoad = false,
   inHand = false,
   grabbed = false,
   depth = 0,
@@ -92,6 +94,19 @@ export function Card3D({
    * `faceUp` in its state and pay nothing to animate it.
    */
   faceDown?: boolean;
+  /**
+   * Keep the card face down until its own art has landed, then turn it over.
+   *
+   * For a table that deals art the player is meant to *read* — a page of a collection arrives one
+   * texture at a time over a slow endpoint, and twenty blank faces waiting to be filled in read as a
+   * broken table, where twenty backs read as a deal. The turn is free: it is the same one-number
+   * sweep `faceDown` animates, so each card flips itself the moment its face exists.
+   *
+   * A card that is never getting art (no `frontUrl`, or a token the indexer 404s) counts as landed
+   * and turns over onto its blank stock — the alternative is a card stuck face down forever.
+   * Orthogonal to `faceDown`, which always wins: a game's own face-down card stays down.
+   */
+  revealOnLoad?: boolean;
   /**
    * The card the player is holding: drawn **over any dimmer** rather than depth-tested against
    * it, so it is lit the same on the felt, in the air and at the camera.
@@ -154,7 +169,13 @@ export function Card3D({
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
   children?: ReactNode;
 }) {
-  const art = useCardArt(frontUrl, { background, aspect, height, pixelated, pin });
+  const { art, settled } = useCardArtState(frontUrl, {
+    background,
+    aspect,
+    height,
+    pixelated,
+    pin,
+  });
   // Whether the cursor is on *this* card, which is all the card decides for itself. `hovered` is the
   // table's answer to the same question, and either one lifts it.
   const [pointerOn, setPointerOn] = useState(false);
@@ -162,7 +183,8 @@ export function Card3D({
   // The cursor is the pointer's own business: a card lifted by a neighbour is not under it.
   useCursor(pointerOn && interactive);
 
-  const resting = faceDown ? faceDownPose(pose) : pose;
+  const down = faceDown || (revealOnLoad && !settled);
+  const resting = down ? faceDownPose(pose) : pose;
   const lifted = (pointerOn || hovered) && hoverable && !grabbed;
   const target = lifted && hoverPose ? hoverPose(resting) : resting;
   const group = usePoseAnimation(target, {
@@ -254,7 +276,7 @@ export function Card3D({
         <meshStandardMaterial
           key={`edge-${raised}`}
           attach={`material-${CARD_FACE.edge}`}
-          color={CARD_PAPER_COLOR}
+          color={CARD_EDGE_COLOR}
           roughness={0.95}
           transparent={raised}
           depthFunc={raised ? AlwaysDepth : LessEqualDepth}

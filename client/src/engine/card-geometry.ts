@@ -32,8 +32,16 @@ export const CARD_THICKNESS = 0.008;
 /** How wide a card of the given aspect is, in card heights. */
 export const cardWidth = (aspect = CARD_ASPECT): number => CARD_HEIGHT * aspect;
 
-/** Card stock, for the rim and for a face whose art has not arrived (or does not fill it). */
+/** Card stock, for a face whose art has not arrived (or does not fill it). */
 export const CARD_PAPER_COLOR = '#f2e7d3';
+/**
+ * The cut edge around the rim — **the one knob for how a stack of cards reads**, and deliberately
+ * darker than the stock it is cut from. A real deck's sides are shaded by the cards either side of
+ * them; ours are `CARD_THICKNESS` apart with nothing to occlude them, so paper-coloured rims lit
+ * from the key light turn a stack into a bright block. Darkening the rim is what puts the shadow
+ * back between the cards.
+ */
+export const CARD_EDGE_COLOR = '#f4ddaeff';
 /** A face that *has* art: white, so the material tints the texture by nothing at all. */
 export const CARD_ART_TINT = '#ffffff';
 

@@ -72,7 +72,6 @@ export function BagPage({ className }: { className?: string }) {
           onChange={setGameFilter}
         />
       )}
-
     </div>
   );
 }

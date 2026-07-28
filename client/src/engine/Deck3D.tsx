@@ -8,6 +8,7 @@ import { CardSlot3D } from '@/engine/CardSlot3D';
 import {
   CARD_ART_TINT,
   CARD_ASPECT,
+  CARD_EDGE_COLOR,
   CARD_FACE,
   CARD_HEIGHT,
   CARD_PAPER_COLOR,
@@ -205,7 +206,7 @@ function DeckStack({
             />
             <meshStandardMaterial
               attach={`material-${CARD_FACE.edge}`}
-              color={CARD_PAPER_COLOR}
+              color={CARD_EDGE_COLOR}
               roughness={0.95}
             />
           </mesh>

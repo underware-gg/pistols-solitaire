@@ -83,6 +83,7 @@ A rounded rect extruded to a card's thickness, re-cut into three material groups
 
 - **One geometry per aspect ratio**, memoized: `cardGeometry(aspect)`. Two decks of different shapes are in play — Torii's 5:7 token art (`TOKEN_ASPECT`) and the 2:3 painted deck in `public/deck/` (`STANDARD_ASPECT`) — and stretching either onto the other's mesh is obvious at a glance.
 - `CARD_GEOMETRY` and `CARD_ASPECT` are kept as the token table's names (`CARD_ASPECT === TOKEN_ASPECT`).
+- **Two stock colours, and the rim's is the darker one.** `CARD_PAPER_COLOR` is the face — blank stock, and the letterbox under art that doesn't fill it. `CARD_EDGE_COLOR` is the cut edge, and it is deliberately *not* the same: a real deck's sides are shaded by the cards either side of them, ours are `CARD_THICKNESS` apart with nothing to occlude them, so a paper-coloured rim under the key light turns a stack into a bright block. It is the one knob for how a stack of cards reads.
 - **Widths go through `cardWidth(aspect)`.** A layout for a non-default deck must never use `CARD_WIDTH`, which is the default-aspect width. Same for `cardCornerRadius(aspect)`.
 - `ExtrudeGeometry` emits *both* caps in one group and the side walls in another, so front and back would share a material. `buildCardGeometry` splits the caps in half — **front/back decided by vertex z, not by three's ordering** — and normalizes the extrusion's raw-coordinate UVs over the card box.
 - **The back's V is inverted, i.e. its art is printed upside down relative to the front.** Required, not cosmetic: the back is seen from the other side (one mirror) *and* the card has been turned end over end to show it (a second mirror); two mirrors leave art unmirrored but upside down. Inverting V cancels it, so a card reads upright both ways up and the flip stays a single-number sweep.
@@ -120,13 +121,15 @@ Nothing goes straight to `TextureLoader`: `card_back.png` is 2996×4197 (~50MB o
 
 ```ts
 loadCardArt(url, { height, background, aspect, pixelated, pin })
-useCardArt(url, { ...same })  // → Texture | undefined
+useCardArt(url, { ...same })       // → Texture | undefined
+useCardArtState(url, { ...same })  // → { art?: Texture, settled: boolean }
 ```
 
 - **Every option is part of the cache key** (`url@height@background@aspect@pixelated`). Two decks can want the same image on different stock or at a different filter and must not share an entry.
 - **`height` is a per-table VRAM budget, and there are two.** `CARD_ART_HEIGHT` (768) is sized for a card brought to the *camera* — `/bag`'s zoom, which fills ~77% of the viewport. `DECK_ART_HEIGHT` (512) is for a card that never leaves the felt: a solitaire board is ~5.8 card heights tall, so a card is ~310 device pixels on a 900px window at 2× DPR and ~480 on a large retina display. Using 768 there would cost ~113MB for a 53-card deck instead of ~49MB, for detail no camera on that table can reach. **`Card3D` takes `height` as a prop for exactly this reason** — how big a card is ever drawn is the table's business, not the engine's.
 - **This is the one fetch in the app not on react-query**, deliberately: a texture is a GPU resource that must be *disposed* on eviction, which a query cache cannot do. `NEXTJS_DATA_FLOW.md` §1 prohibits `useEffect` for *app data*, not for loading images.
-- Drawing **letterboxes** art of a different aspect onto card stock rather than stretching it. `background` is what the letterbox is filled with; the blank face before the texture lands uses the same colour, so a card doesn't paint cream and then turn dark. **The rim stays paper** on purpose — art is printed on stock, and the edge is where the stock shows.
+- Drawing **letterboxes** art of a different aspect onto card stock rather than stretching it. `background` is what the letterbox is filled with; the blank face before the texture lands uses the same colour, so a card doesn't paint cream and then turn dark. **The rim ignores it** and stays `CARD_EDGE_COLOR` — art is printed on stock, and the edge is where the stock shows.
+- **`settled` is the difference between "still coming" and "there is none"**, and `art` alone cannot say which: both are `undefined`. Only `useCardArtState` reports it, because only a card that is *waiting* for its face needs it — a fetch that gives up settles with no art, so a card dealt face down (`Card3D`'s `revealOnLoad`) turns over onto blank stock instead of hanging face down forever on a token the indexer 404s.
 - `pin: true` never evicts. For art on the table for the whole session: a card back, or a small static deck.
   - **Pin sparingly.** `CACHE_LIMIT` is 60 total. Pinning a 52-card deck would leave `/bag` seven free slots and make its token art thrash for the rest of the session — so the solitaire *faces* are unpinned (they fit under the cap while in play, so the LRU keeps them anyway) and only the *back* is pinned.
 
@@ -180,10 +183,11 @@ The card owns exactly one thing itself: **whether the cursor is on it.** Everyth
 
 | Prop | Notes |
 |---|---|
-| `frontUrl` | Absent → blank stock. A card is never held back waiting for its texture; it appears on the blank card when it lands. |
+| `frontUrl` | Absent → blank stock. A card is never held back waiting for its texture; it appears on the blank card when it lands — unless `revealOnLoad` says to wait face down. |
 | `back`, `background`, `aspect`, `height`, `pixelated`, `pin` | Passed through to the art layer. `aspect` **must** match the aspect the art was rasterized at; `height` is the table's texel budget (`CARD_ART_HEIGHT` / `DECK_ART_HEIGHT`). |
 | `pose`, `initial`, `delay` | The animation. See `usePoseAnimation`. |
 | `faceDown` | Selects `faceDownPose(pose)` — the same slot, back up. **Passing it *is* the turn-over animation.** |
+| `revealOnLoad` | Deal face down, turn over when *this card's* art lands (`useCardArtState`'s `settled`). For a table dealing art off a slow endpoint: twenty blank faces filling in one by one read as a broken table, twenty backs read as a deal. A card that is never getting art turns over onto its blank stock rather than sticking. `faceDown` wins over it. |
 | `inHand` / `grabbed` | Draw over everything. See the depth traps below. `grabbed` additionally uses `GRAB_LAMBDA` and drops the arc. |
 | `depth` | Draw order *within* a carried run. See below. |
 | `hoverable`, `hoverPose` | Omit `hoverPose` and hover changes nothing but the cursor. |

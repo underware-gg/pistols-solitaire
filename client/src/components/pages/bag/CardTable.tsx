@@ -344,6 +344,13 @@ function Table({
               pose={open ? (isZoomed ? zoom : gridPose(index, columns)) : home}
               initial={pile}
               delay={open ? DEAL_DELAY + index * DEAL_STAGGER : 0}
+              //
+              // Dealt face down, turned over as each card's art lands. Torii serves a token image in
+              // its own time (and often needs a second ask — `card-art.ts`), so dealing art up meant
+              // a page of blank cream faces filling in one by one; dealt down, the same wait reads as
+              // a deal and every card turns over onto its own picture.
+              //
+              revealOnLoad
               inHand={isZoomed}
               hoverable={!isZoomed}
               hoverPose={hoveredCardPose}
