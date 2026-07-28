@@ -43,7 +43,7 @@ export function TokenCardsPage({ className }: { className?: string }) {
         <div className="text-left">
           <h2>{deck.name}</h2>
           <p className="text-ps-text/60 text-sm">
-            {deck.game} · {deck.tokenIds.length} cards
+            {deck.game} · {deck.cardIds.length} cards
           </p>
         </div>
       </div>

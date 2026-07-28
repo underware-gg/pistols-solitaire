@@ -246,7 +246,7 @@ Pure data and url builders; no three.js, no React. `SUITS`, `RANKS` (ascending, 
 - `cardId` carries a **deck number**, because Spider and its kin play with two decks and two identical Kings must be distinguishable — React keys, drag payloads and persisted move lists all lean on it being unique.
 - Art is `public/deck/<suit>/<rank>.jpg` plus `public/deck/backs/<colour>.jpg` — painted JPEGs, every one **1024×1536**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's shape nothing is letterboxed and the stock colour is never seen; because it is far larger than a card is ever drawn, it is rasterized down to `DECK_ART_HEIGHT`. At ~600KB a file the whole deck is ~31MB of assets, so a first deal is a real download — that is the number to watch if the deck grows.
 - `public/deck/backs/` ships **black, blue and red**, and `CARD_BACKS` is the order they are offered in — the first is the default, and `SolitairePage` renders the tuple as a segmented control. **Adding one to the tuple is the whole change needed to offer it**, because the url is derived from the name and the control is derived from the tuple.
-  - `backs/joker.jpg` is deliberately **not** in `CARD_BACKS`: it is a joker *face*, filed with the backs because the 52-card deck has no place for it.
+  - `backs/joker.jpg` is deliberately **not** in `CARD_BACKS`: it is a joker *face*, filed with the backs because the 52-card deck has no place for it. It is exported as `JOKER_URL` rather than as a `Card`, because it has no suit and no rank for the rules layer to hold — `/bag/solitaire` shows it as the deck's 53rd card and nothing deals it.
 
 ### `index.ts` — the barrel
 

@@ -29,6 +29,8 @@
     "**/dist": true,
     "dojo/bindings/**": true,
     "gamejam": true,
+    ".agents": true,
+    ".claude": true,
   },
   "typescript.validate.enable": true,
   "editor.detectIndentation": false,

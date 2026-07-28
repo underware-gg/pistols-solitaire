@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 import { CardTable, type TableDeck } from '@/components/pages/bag/CardTable';
+import { SOLITAIRE_DECK } from '@/components/pages/bag/solitaire-deck';
 import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/bag/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
@@ -43,7 +44,10 @@ const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
 const HOME_GAME = 'pistols';
 
 type BagView = {
-  /** Every collection, in table order, whether or not the account holds any of it. */
+  /**
+   * Every deck in table order: each collection, whether or not the account holds any of it, and the
+   * house's own solitaire deck last.
+   */
   decks: TableDeck[];
   /** The open deck, if the URL names one we know. */
   deck?: TableDeck;
@@ -53,9 +57,9 @@ type BagView = {
   page: number;
   pages: number;
   turnPage: (delta: number) => void;
-  /** The token ids dealt on the felt right now, in table order — what the zoom steps through. */
+  /** The card ids dealt on the felt right now, in table order — what the zoom steps through. */
   hand: string[];
-  /** Token id of the card held up to the camera, if any. */
+  /** Card id of the one held up to the camera, if any. */
   zoomed: string | null;
   /**
    * Move the zoom along the dealt page by a signed number of cards. **Bounded by the page**: the
@@ -113,16 +117,21 @@ export function BagScene({ children }: { children: ReactNode }) {
   );
 
   const decks = useMemo<TableDeck[]>(
-    () =>
-      isLoading
+    () => [
+      ...(isLoading
         ? []
         : tokens.map(token => ({
             address: token.address,
             game: token.game,
             slug: token.slug,
             name: token.name,
-            tokenIds: balances.erc721[token.address] ?? [],
-          })),
+            cardIds: balances.erc721[token.address] ?? [],
+          }))),
+      // And the house's own deck, last on the felt. It is not a collection and not the account's, so
+      // neither the game filter nor the wait above touches it: it is there from the first frame,
+      // which is what makes `/bag/solitaire` a link that works with no wallet connected at all.
+      SOLITAIRE_DECK,
+    ],
     [balances, isLoading, tokens],
   );
 
@@ -134,7 +143,7 @@ export function BagScene({ children }: { children: ReactNode }) {
   const index = slug ? decks.findIndex(deck => deck.slug === slug) : -1;
   const selected = index >= 0 ? index : null;
   const deck = selected === null ? undefined : decks[selected];
-  const pages = deck ? Math.max(1, Math.ceil(deck.tokenIds.length / gridPageSize(columns))) : 1;
+  const pages = deck ? Math.max(1, Math.ceil(deck.cardIds.length / gridPageSize(columns))) : 1;
 
   // Narrowing the window deals fewer cards at a time, so the page being read can fall off the end of
   // a deck that has just grown shorter — clamped here rather than in `setPage`, since the count can
@@ -144,7 +153,7 @@ export function BagScene({ children }: { children: ReactNode }) {
   // The cards actually on the felt: the same slice the table deals, and the range the zoom steps in.
   const hand = useMemo(() => {
     const size = gridPageSize(columns);
-    return deck ? deck.tokenIds.slice(page * size, (page + 1) * size) : [];
+    return deck ? deck.cardIds.slice(page * size, (page + 1) * size) : [];
   }, [deck, page, columns]);
 
   /** The zoom, moved along the dealt page and stopped at its ends. */

@@ -64,6 +64,7 @@ export {
   faceUrl,
   freshDeck,
   isRed,
+  JOKER_URL,
   type Rank,
   RANKS,
   rankValue,

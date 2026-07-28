@@ -23,9 +23,20 @@ import {
 } from '@/components/pages/bag/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
 import { tokenImageUrl } from '@/dojo/torii';
-import { Card3D, damp, Deck3D, FitCamera, MOVE_LAMBDA, useCardArt } from '@/engine';
+import {
+  backUrl,
+  Card3D,
+  damp,
+  Deck3D,
+  DECK_ART_HEIGHT,
+  FitCamera,
+  MOVE_LAMBDA,
+  STANDARD_ASPECT,
+  useCardArt,
+} from '@/engine';
 import { CARD_BACK_ALT_URL, CARD_BACK_URL, cardBackUrl } from '@/engine/card-art';
 import { cn } from '@/lib/cn';
+import { useSolitaireStore } from '@/stores/solitaire-store';
 
 //
 // The 3D table: decks on the felt, one deck dealt into a grid, one card held up to the light.
@@ -48,8 +59,32 @@ export type TableDeck = {
   /** `contracts.json`'s slug: how this deck is named in the URL. */
   slug: string;
   name: string;
-  /** Every token id owned in this collection, ascending. Only a page of them is ever dealt. */
-  tokenIds: string[];
+  /**
+   * Every card in the deck, in the order it is dealt. For a collection these are the token ids the
+   * account holds, ascending; for a deck that is not a collection they are whatever {@link art}
+   * knows how to draw. Only a page of them is ever on the felt.
+   */
+  cardIds: string[];
+  /** Set only for a deck that is not a collection — see {@link DeckArt}. */
+  art?: DeckArt;
+};
+
+/**
+ * A deck whose cards are files rather than tokens: `/bag/solitaire`, the standard deck. Absent —
+ * i.e. for every collection — a card's art comes from Torii's image endpoint, it is the token shape,
+ * and its caption is its token number.
+ *
+ * The **back is deliberately not here**: it is the player's own, chosen on `/solitaire`, so the
+ * table resolves it the same way it picks between the two token backs. Everything in here is a
+ * property of the deck's *art*, which is the whole reason the table needs to be told any of it.
+ */
+export type DeckArt = {
+  /** Where the face of this card is. Nothing back means blank stock, as with a token that 404s. */
+  face: (cardId: string) => string | undefined;
+  /** The shape every card in the deck is drawn at. Must be the aspect its art was painted at. */
+  aspect: number;
+  /** What the zoomed card's caption says, in place of a token number. */
+  label: (cardId: string) => string | undefined;
 };
 
 /** Beat before the first card leaves the pile, so the deck has arrived where it is dealing from. */
@@ -145,15 +180,28 @@ function Table({
   const viewport = useThree(state => state.size);
 
   //
-  // The two card backs, both loaded and pinned for the life of the table: pistols' own collections
-  // are printed on one and every other game on the other (`cardBackUrl`). Loaded up front rather
-  // than per deck because there are only two of them and every deck on the felt wants one already —
-  // a hook cannot be called per deck anyway, and a back arriving late would flash blank stock across
-  // a whole table of face-down cards.
+  // The card backs, all loaded and pinned for the life of the table: pistols' own collections are
+  // printed on one and every other game on the other (`cardBackUrl`), and the deck that is not a
+  // collection carries its own. Loaded up front rather than per deck because there are only three of
+  // them and every deck on the felt wants one already — a hook cannot be called per deck anyway, and
+  // a back arriving late would flash blank stock across a whole table of face-down cards.
   //
+  // The house deck's back is **the one the player chose on `/solitaire`**: it is the same deck, so it
+  // is the same back. Asked for at `DECK_ART_HEIGHT` and `STANDARD_ASPECT`, which is exactly what
+  // `SolitaireTable` asks for — same cache key, so the two tables share the one texture rather than
+  // pinning a second copy of it. The budget is right here too: a back is only ever seen in a stack on
+  // the felt, because a card held up to the camera is showing its face.
+  //
+  const cardBack = useSolitaireStore(s => s.cardBack);
   const homeBack = useCardArt(CARD_BACK_URL, { pin: true });
   const guestBack = useCardArt(CARD_BACK_ALT_URL, { pin: true });
-  const backFor = (game?: string) => (cardBackUrl(game) === CARD_BACK_URL ? homeBack : guestBack);
+  const houseBack = useCardArt(backUrl(cardBack), {
+    aspect: STANDARD_ASPECT,
+    height: DECK_ART_HEIGHT,
+    pin: true,
+  });
+  const backFor = (deck: TableDeck) =>
+    deck.art ? houseBack : cardBackUrl(deck.game) === CARD_BACK_URL ? homeBack : guestBack;
 
   //
   // Each view is framed on its own, and every pose in front of the camera is derived from where the
@@ -186,7 +234,7 @@ function Table({
   }, [open]);
 
   const size = gridPageSize(columns);
-  const hand = dealt ? dealt.tokenIds.slice(page * size, (page + 1) * size) : [];
+  const hand = dealt ? dealt.cardIds.slice(page * size, (page + 1) * size) : [];
 
   //
   // Where the hand goes when the deck closes: the top of that deck, back in the browsing layout.
@@ -198,11 +246,16 @@ function Table({
   const home =
     dealtIndex < 0 || !dealt
       ? pile
-      : deckTopPose(dealtIndex, decks.length, Math.min(TABLE.deckStack, dealt.tokenIds.length));
+      : deckTopPose(dealtIndex, decks.length, Math.min(TABLE.deckStack, dealt.cardIds.length));
 
-  // The open collection's own stock. Undefined lets Card3D fall back to cream paper.
+  // The open collection's own stock. Undefined lets Card3D fall back to cream paper — which is also
+  // what a deck that is not a collection gets, and all it needs: its art is already the card's shape,
+  // so the stock behind it is never seen.
   const meta = useContractMeta(dealt?.address);
   const background = meta?.backgroundColor;
+
+  /** Where the open deck's cards come from, and what to call one: its own art, or Torii's. */
+  const art = dealt?.art;
 
   return (
     <>
@@ -238,8 +291,8 @@ function Table({
         // page is dealt has nothing left to draw, which is what the empty slot says.
         const remaining =
           index === selected
-            ? Math.max(0, deck.tokenIds.length - (page + 1) * size)
-            : deck.tokenIds.length;
+            ? Math.max(0, deck.cardIds.length - (page + 1) * size)
+            : deck.cardIds.length;
         //
         // What a click does, and only the table can say — the open deck is a pile you deal from:
         // with cards left in it, clicking deals the next page; emptied, clicking is the space the
@@ -259,11 +312,12 @@ function Table({
           <Deck3D
             key={deck.address}
             label={deck.name}
-            sublabel={String(deck.tokenIds.length || 'empty')}
+            sublabel={String(deck.cardIds.length || 'empty')}
             cards={Math.min(TABLE.deckStack, remaining)}
             cardPose={deckCardPose}
             hoverPose={hoveredDeckPose}
-            back={backFor(deck.game)}
+            back={backFor(deck)}
+            aspect={deck.art?.aspect}
             pose={
               selected === null
                 ? deckPose(index, decks.length)
@@ -278,13 +332,14 @@ function Table({
       })}
 
       {dealt &&
-        hand.map((tokenId, index) => {
-          const isZoomed = zoomed === tokenId;
+        hand.map((cardId, index) => {
+          const isZoomed = zoomed === cardId;
           return (
             <Card3D
-              key={`${dealt.address}-${tokenId}`}
-              frontUrl={tokenImageUrl(dealt.address, tokenId)}
-              back={backFor(dealt.game)}
+              key={`${dealt.address}-${cardId}`}
+              frontUrl={art ? art.face(cardId) : tokenImageUrl(dealt.address, cardId)}
+              back={backFor(dealt)}
+              aspect={art?.aspect}
               background={background}
               pose={open ? (isZoomed ? zoom : gridPose(index, columns)) : home}
               initial={pile}
@@ -292,7 +347,7 @@ function Table({
               inHand={isZoomed}
               hoverable={!isZoomed}
               hoverPose={hoveredCardPose}
-              onClick={() => onZoom(isZoomed ? null : tokenId)}
+              onClick={() => onZoom(isZoomed ? null : cardId)}
             >
               {isZoomed && (
                 //
@@ -313,8 +368,9 @@ function Table({
                 >
                   <div className="whitespace-nowrap rounded-md border border-ps-line bg-ps-panel/90 px-4 py-2">
                     <span className="small-caps font-title text-xl text-ps-text">{dealt.name}</span>
+                    {/* A collection numbers its cards; a deck of playing cards names them. */}
                     <span className="ml-3 font-mono text-lg text-ps-text">
-                      #{BigInt(tokenId).toString()}
+                      {art ? art.label(cardId) : `#${BigInt(cardId).toString()}`}
                     </span>
                   </div>
                 </Html>

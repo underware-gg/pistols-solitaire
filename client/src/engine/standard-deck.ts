@@ -13,7 +13,7 @@
 // than magnified.
 //
 
-export const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
+export const SUITS = ['diamonds', 'clubs', 'hearts', 'spades'] as const;
 export type Suit = (typeof SUITS)[number];
 
 /** Ascending, so the index **is** the rank's value: `A` low, `K` high. See `rankValue`. */
@@ -66,9 +66,17 @@ export const faceUrl = (suit: Suit, rank: Rank): string => `/deck/${suit}/${rank
  * needed to offer it, because the url is derived from the name.
  *
  * `public/deck/backs/` also holds `joker.jpg`, which is deliberately **not** here: it is a joker
- * *face*, filed with the backs because it is the one card the 52-card deck has no place for.
+ * *face*, filed with the backs because it is the one card the 52-card deck has no place for. See
+ * {@link JOKER_URL}.
  */
 export const CARD_BACKS = ['black', 'blue', 'red'] as const;
 export type CardBack = (typeof CARD_BACKS)[number];
 
 export const backUrl = (back: CardBack): string => `/deck/backs/${back}.jpg`;
+
+/**
+ * The joker's face — the one card in `public/deck/` that {@link freshDeck} never deals, because no
+ * solitaire uses it. It has a url rather than a `Card` for exactly that reason: it is art without a
+ * suit or a rank, so the rules layer has nowhere to put it. `/bag` shows it at the end of the deck.
+ */
+export const JOKER_URL = '/deck/backs/joker.jpg';
