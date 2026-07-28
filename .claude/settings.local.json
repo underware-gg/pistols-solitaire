@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node *)",
+      "Bash(pnpm check-types *)",
+      "Bash(pnpm lint *)",
+      "Bash(NEXT_DIST_DIR=.next-claude npx next build)",
+      "Bash(grep *)"
+    ]
+  }
+}

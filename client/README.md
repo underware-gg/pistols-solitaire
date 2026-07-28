@@ -43,16 +43,37 @@ One network at a time, via the Cartridge Controller. Mainnet by default; `NEXT_P
 
 | file | what |
 | --- | --- |
-| `src/dojo/profiles.ts` | the mainnet/sepolia profiles: chain, RPC, Torii, manifest, contract addresses per game |
+| `src/dojo/profiles.ts` | the mainnet/sepolia profiles: chain, RPC, Torii, contract addresses per game |
 | `src/dojo/config.ts` | `PROFILE` — the active profile. Read chain config from here, never from `process.env` |
 | `src/dojo/torii.ts` | `getToriiClient()` — the one Torii client (lazy: it loads ~3MB of WASM) |
+| `src/dojo/contracts.ts` | `getPistolsContract(name)` — a world contract's address + ABI, from the SDK manifest |
+| `src/dojo/calls.ts` | `approveLordsCall()`, `vrfRequestCall()` — the calls that ride in front of a paid call |
 | `src/hooks/use-controller.ts` | `useController()` — connect / disconnect / open the Controller |
+| `src/hooks/contracts/` | one file per world contract, one hook per entrypoint |
 | `src/components/providers/StarknetProvider.tsx` | `StarknetConfig` + the single `ControllerConnector` |
 | `src/components/providers/TokensProvider.tsx` | live token balances of the connected account; read via `useTokenBalances()`, `useCoinBalance()`, `useTokenIds()` |
 
 Addresses come from two places and are never typed by hand: **pistols** from the Dojo manifests in
 `@underware/pistols-sdk`, **every other game** from [`../contracts.json`](../contracts.json) — the same
 file the Torii indexer reads. To add a game's tokens, edit `contracts.json` and redeploy the indexer.
+
+### Contract calls
+
+One file per contract in `src/hooks/contracts/`, one hook per entrypoint:
+
+| file | hooks |
+| --- | --- |
+| `use-game.ts` | `useGetDuelDeck`, `useGetDuelProgress` |
+| `use-pack-token.ts` | `useCanClaimStarterPack`, `useClaimStarterPack`, `useCanPurchase`, `useCalcMintFee`, `usePurchase`, `usePurchaseRandom`, `useOpenPack` |
+| `use-ring-token.ts` | `useCanClaimRing`, `useClaimRing` |
+
+Reads need no wallet. Writes go through the Controller and show one toast per transaction, from sent
+to landed-or-reverted. To add an entrypoint: a hook in the contract's file (a new contract also needs
+its name in `PistolsContractName`, `src/dojo/contracts.ts`).
+
+**Exercise them at [`/test`](http://localhost:3000/test)** — a bench with every hook wired to a
+button, one section per contract. Not linked from the app; go to the URL. **Its writes are real
+transactions** (`purchase` costs 50 LORDS on mainnet) — use `NEXT_PUBLIC_PROFILE=sepolia`.
 
 **Dev runs over HTTPS** (`next dev --experimental-https`, self-signed certs in `certificates/`). Required: the keychain iframe sets `frame-ancestors 'self' https: http://localhost:* http://127.0.0.1:*`, so over plain http Connect silently does nothing on any host but `localhost`. First run generates an mkcert CA and may ask for your password; other devices need that CA installed to avoid a cert warning.
 

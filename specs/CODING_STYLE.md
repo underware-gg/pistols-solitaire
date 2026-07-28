@@ -23,16 +23,18 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`) — 
 - **[diverges] One folder per page under `components/pages/`.** The page component lives in `components/pages/<page>/` — `pages/home/HomePage.tsx` for `/` — and **every component built specifically for that page sits beside it in the same folder**. A component only leaves the page folder when it is genuinely generic (a connect button, a badge, a `ui/` primitive) or when a second page starts using it; then it moves up to `components/` (or `components/ui/`) and both pages import it from there.
 - **Providers are components**, not route files: `components/providers/` (`providers.tsx` exports `Providers`; one file per provider next to it). `app/layout.tsx` imports `Providers` from there.
 - **Everything composable, everything in `components/`** — shared primitives in `components/ui/`, page-specific components in `components/pages/<page>/`, cross-page feature components at the top level of `components/`. New UI is a component in `components/` first; a route only ever grows an import.
-- Hooks go in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer (`NEXTJS_DATA_FLOW.md`), the root of `hooks/` for chain and UI hooks.
+- Hooks go in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer, `contracts/` for on-chain calls (all three per `NEXTJS_DATA_FLOW.md`), the root of `hooks/` for chain and UI hooks.
 
 ```
 client/src/
   app/            layout.tsx, page.tsx, api/, actions/ — nothing else
   components/     Header.tsx, ControllerButton.tsx, NavigationCard.tsx, providers/, ui/
   components/pages/home/   HomePage.tsx — the `/` route, plus any component only it uses
-  hooks/          use-controller.ts, queries/, mutations/
+  hooks/          use-controller.ts, contracts/, queries/, mutations/
   stores/         settings-store.ts — zustand client state (see Client state below)
 ```
+
+- **`hooks/contracts/` is one file per *contract*, not per hook** — `use-pack-token.ts` holds every entrypoint of `pack_token`, one exported hook each, named for the entrypoint (`useCanPurchase` → `can_purchase`). It is the one folder under `hooks/` whose file name is a subject rather than a single hook; the rules are `NEXTJS_DATA_FLOW.md` §0 and `CLAUDE.md` § Contract calls.
 
 ## Client state (zustand stores)
 

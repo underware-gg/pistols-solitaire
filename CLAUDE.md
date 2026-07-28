@@ -51,10 +51,12 @@ client/src/
   components/     everything else — generic components, providers/, ui/ (cva primitives
                   + a *.stories.tsx next to each)
   components/pages/<page>/  one folder per page: its page component + its own parts
-  dojo/           chain profiles: profiles.ts (the table), config.ts (PROFILE), torii.ts
+  dojo/           chain layer: profiles.ts (the table), config.ts (PROFILE), torii.ts,
+                  contracts.ts (address + ABI), calls.ts (approve / VRF call fragments)
   engine/         the 3D card engine  → specs/ENGINE.md
   solitaire/      the solitaire rules engine  → specs/SOLITAIRE.md
   hooks/          use-controller.ts (chain), plus:
+  hooks/contracts/ one file per world contract, one hook per entrypoint
   hooks/queries/  one react-query hook per API query route
   hooks/mutations/ one hook per server action, over useActionMutation
   lib/            cn(), client-utils (handleApiError)
@@ -150,7 +152,8 @@ Every ERC-721 collection is a face-down deck on the felt; picking one deals a pa
 
 One network at a time, selected by profile — **ported from `/Users/roger/Dev/Realms/LORE/packages/client-sn/src/dojo/`**, which is the reference for this layer. Read those files when a rule here needs context.
 
-- **`profiles.ts`** — the profile table. Only `mainnet` and `sepolia` exist (LORE also has a local Katana; we don't). Each profile carries `chain` / `chainName` / `rpcUrl` / `toriiUrl` / `manifest` / `namespace`, and `getProfileConfig()` derives `chainId`, `contractAddresses` and `tokens` from it. **A profile holds a single `manifest`** — LORE splits every field into `{ starknet, appchain }` because it bridges to an appchain; there is no appchain here, so never reintroduce that shape.
+- **`profiles.ts`** — the profile table. Only `mainnet` and `sepolia` exist (LORE also has a local Katana; we don't). Each profile carries `networkId` / `chain` / `chainName` / `rpcUrl` / `toriiUrl` / `namespace`, and `getProfileConfig()` derives `chainId`, `contractAddresses` and `tokens` from it. **Every field is a single value** — LORE splits each into `{ starknet, appchain }` because it bridges to an appchain; there is no appchain here, so never reintroduce that shape.
+  - **A profile carries no `manifest`.** It carries `networkId`, which is the key the SDK's own `getManifest({ networkId })` takes, so whatever needs the manifest (or an ABI out of it) asks the SDK — see `dojo/contracts.ts`. A copy on the profile would be a second source for something served from one; don't add the field back.
 - **`config.ts`** — `PROFILE`, the active profile, plus `PROFILE_NAME`. **Everything chain-dependent imports `PROFILE`; nothing else reads `process.env` for chain config.** `NEXT_PUBLIC_PROFILE` picks the network (default `mainnet`), `NEXT_PUBLIC_RPC_URL` / `NEXT_PUBLIC_TORII_URL` override one URL each. Every var and its default is in `client/.env.example`; `torii/.env.example` covers the indexer.
 - **`torii.ts`** — `getToriiClient()`, one lazily-created `ToriiClient`. The **dynamic `import()` is load-bearing, keep it inside the factory** (and the `ToriiClient` type import `type`-only): `@dojoengine/torii-client` re-exports `@dojoengine/torii-wasm`, whose module body instantiates a **2.7MB WASM binary at import time**. A static import puts it in the initial page chunk and every visitor downloads it before connecting — measured both ways, `…dojo_wasm_bg….wasm` is requested on first paint with a static import and not at all with the dynamic one. (It is *not* about SSR: a static import still builds and `/` still prerenders static.)
 
@@ -187,19 +190,64 @@ Connected through the **Cartridge Controller**; connector versions match `/Users
 - `@cartridge/controller/react`'s `ControllerToaster` (and its stylesheet) is deliberately **not** mounted: it's optional, and the one-stylesheet rule means importing package CSS needs a reason. Add it when transaction toasts are wanted.
 - `ControllerOptions.tokens` is **not** set: in `0.13.x` its `Token` type is a fixed union (`eth`/`strk`/`lords`/`usdc`/`usdt`), not arbitrary addresses, so the game's tokens can't be listed in the Controller inventory that way. `toriiUrl` is what surfaces them.
 
+## Contract calls (`client/src/hooks/contracts/`)
+
+Calling the Pistols world's system contracts. **The SDK's *call* layer is deliberately not used** — no `createSystemCalls`, no `useDojoContractCalls`, no `@dojoengine/sdk` context. We take its **ABIs** (and its pure helpers) and drive the calls with `@starknet-react/core` + starknet.js, per `specs/NEXTJS_DATA_FLOW.md` §0.
+
+```
+dojo/contracts.ts          getPistolsContract(name) → { address, abi }; callPistolsContract() (one-shot)
+dojo/calls.ts              approveLordsCall(), vrfRequestCall() — the calls that ride in front
+hooks/contracts/
+  use-contract-read.ts     useContractRead<T>, useInvalidateContractReads
+  use-contract-mutation.tsx  useContractMutation — send, await the receipt, toast
+  use-game.ts              useGetDuelDeck, useGetDuelProgress
+  use-pack-token.ts        useCanClaimStarterPack, useClaimStarterPack, useCanPurchase,
+                           useCalcMintFee, usePurchase, usePurchaseRandom, useOpenPack
+  use-ring-token.ts        useCanClaimRing, useClaimRing
+```
+
+- **One file per contract, one hook per entrypoint, and only the entrypoints we need.** A hook is named for the entrypoint (`useCanPurchase` for `can_purchase`) and returns the query/mutation result spread plus one **named** field (`canPurchase`, `fee`, `decks`, `duelProgress`) — never just `data`. Adding an entrypoint is a hook in the contract's file; adding a contract is a file plus a name in `PistolsContractName`.
+- **ABIs come from the SDK manifest at runtime, never vendored.** `getPistolsContract(name)` = `getContractByName(getManifest({ networkId: PROFILE.networkId }), NAMESPACE, name)`, so address and ABI come from the same source `profiles.ts` reads and can't describe a different contract. Costs no bundle (the SDK statically imports all three manifests). Results are **cached for reference identity** — `useReadContract` memoizes its starknet.js `Contract` on `[abi, address]`, so a fresh object per render rebuilds it every render.
+  - The price: abi-wan-kanabi only infers from an `as const` ABI literal, so a runtime ABI gives no type inference. `useContractRead<T>` carries the return type as an explicit `T` and holds the one `as any` for the whole app. **Don't hand-copy `as const` ABI slices to get the inference back** — that is a second copy of the truth that drifts the day a contract is redeployed.
+- **A profile does not carry the manifest.** It carries `networkId`, which is the key `getManifest()` takes. Don't add a `manifest` field back to `ProfileConfig`.
+- **Reads are `useReadContract`, used bare** (`useContractRead` resolves the contract and casts, and adds no cache). `parseResponse: true` is on, so a Cairo struct arrives as an object and a Cairo enum as a `CairoCustomEnum` — which is exactly what the SDK's pure `convert_*` helpers expect (`convert_duel_progress`), and a Cairo `Option` as a `CairoOption` (`.isSome()` / `.unwrap()`, so "none" is not a zero). Reads go through the `StarknetConfig` provider: **no wallet needed**. `watch` (refetch per block) is off by default.
+- **Writes are NOT `useSendTransaction`.** That hook resolves when the wallet *accepts*, not when the chain *executes* — it can say "sent", never "claimed", and a toast on it would report success on a transaction that goes on to revert. `useContractMutation` calls `account.execute` then `waitForTransaction` (success states include `PRE_CONFIRMED`, seconds ahead of `ACCEPTED_ON_L2` on mainnet) and throws the revert reason. This is a mutation over an SDK promise that has no hook, not a cache over a chain hook.
+- **One entrypoint, but not always one call.** A paid entrypoint needs an ERC-20 approval in front of it and a random one needs a VRF request; `useContractMutation`'s `before` supplies them and they go in the **same transaction**, so the toast, the receipt and the revert stay one thing. `before` is async because the amount to approve is a fee the contract has to be asked for first — via `callPistolsContract(account, …)`, deliberately **not** the cached read hook: a fee from a stale block is an approval for the wrong amount. `undefined` entries are dropped, so a builder can return an approval that turns out not to be needed.
+- **Calldata is compiled from the ABI, never assembled by hand** — `new CallData(abi).compile(entrypoint, args)` needs no provider and knows every Cairo type, so an entrypoint taking a struct or enum costs an `args` mapper and nothing else. Cairo enums are built with the SDK's `makeCustomEnum`. **`args` is optional, and omitting it skips the ABI lookup** — which is the only reason `purchase_random` is callable at all (see the SDK section).
+- **Toasts: one per call, `loading` → `success` or `error` at the same id**, labelled `contract::entrypoint()` plus an incrementing id, with a live `ElapsedTimeBadge` and — once it exists — the transaction hash. Two deliberate divergences from `useActionMutation` (`specs/NEXTJS_DATA_FLOW.md` §6): the lifecycle is **inside `mutationFn`**, because the hash only exists halfway through and the toast has to survive the callbacks react-query skips when a component unmounts mid-transaction; and it **morphs in place** instead of dismiss-then-open, which is why `handleApiError` grew an optional `toastId`. Success *is* shown here, unlike the server-action layer — a transaction with no visible UI change still needs to say it landed.
+- **Invalidation is the per-entrypoint hook's job**, not the component's: it is the only thing that knows which views its write moved (`onSuccess: () => invalidateContractReads(CONTRACT)`). **`useQueryInvalidate` cannot reach these** — starknet-react keys a read as a *single object* (`[{ entity: 'readContract', contract, functionName, args, … }]`), so matching a key segment never hits one; `useInvalidateContractReads` predicates on that object instead.
+- **Token balances still come from Torii**, not from here. A write mints; `TokensProvider`'s subscription is what notices. Never poll a token balance through a contract hook.
+
+### `/test` — the contract bench (`client/src/components/pages/test/`)
+
+`app/test/page.tsx` mounts `TestPage`, one section per contract: connect/disconnect plus the account, then each view's live value and a button per write (`claim_starter_pack`, `purchase`, `purchase_random`, `open`, `claim_season_ring`), with `duel_id` / `pack_id` / `pack_type` inputs and a `<pre>` dump for the two `game` views.
+
+**It is a bench, not product UI** — it exists so an entrypoint can be exercised, and its toast watched, without a game around it. Deliberately **not linked from anywhere** (navigate to `/test` directly), so it stays out of the player's way. It follows the page-folder rule like any other page and is the natural first consumer of a new contract hook; delete the sections a real page takes over.
+
+- **The writes are real** and spend real LORDS on mainnet — `purchase` at 50 LORDS for a `GenesisDuelists5x`. `NEXT_PUBLIC_PROFILE=sepolia` is the cheap way to exercise them.
+- The `pack_type` list is the **manifest's** seven variants, not the SDK enum's nine — see the SDK section.
+- Reads here need no wallet and render before a connect; every write button is gated on `isConnected` and on the matching `can_*` view.
+
 ## `@underware/pistols-sdk`
 
 Published on npm (root `catalog:`), sourced from `/Users/roger/Dev/Realms/pistols/sdk`. **It is the resource library for composing Pistols games — reach for it before hand-rolling anything Pistols- or Starknet-shaped.** What we use today:
 
-- `@underware/pistols-sdk/pistols/config` — `NetworkId` / `ChainId` / `NAMESPACE`, `getManifest()`, and the per-contract address getters (`getWorldAddress`, `getFameAddress`, `getDuelTokenAddress`, …). Bundles the mainnet/sepolia/dev manifests, so we don't vendor them.
-- `@underware/pistols-sdk/utils` — `bigintToAddress` (padded lowercase, the form Torii wants), `bigintToHex`, `isPositiveBigint`.
-- `@underware/pistols-sdk/starknet` — `stringToFelt` (chain name → chain id felt), `weiToEthString`.
+- `@underware/pistols-sdk/pistols/config` — `NetworkId` / `ChainId` / `NAMESPACE`, `getManifest()`, and the per-contract address getters (`getWorldAddress`, `getFameAddress`, `getDuelTokenAddress`, …). Bundles the mainnet/sepolia/dev manifests, so we don't vendor them — **and the manifests carry each contract's ABI**, which is what `dojo/contracts.ts` reads.
+- `@underware/pistols-sdk/utils` — `bigintToAddress` (padded lowercase, the form Torii wants), `bigintToHex`, `isPositiveBigint`, `shortAddress`.
+- `@underware/pistols-sdk/starknet` — `stringToFelt` (chain name → chain id felt), `weiToEthString`, `bigintToU256`, and the Cairo enum helpers `makeCustomEnum` / `parseEnumVariant`.
+- `@underware/pistols-sdk/abis` — the generic ABIs that are *not* Dojo resources and so have no manifest row: `erc20_abi` (used to compile the LORDS approval), `erc721_abi`, `vrf_abi`.
+- `@underware/pistols-sdk/pistols` — pure converters, no Dojo context: `convert_duel_progress` (the `DuelProgress` tree of `CairoCustomEnum`s → named card values).
+- `@underware/pistols-sdk/pistols/gen` — `constants`, the generated Cairo enums as TS (`PackType`, `RingType`).
 
 Notes for working with it:
 
-- **The npm release lags the local checkout** (1.3.2 vs 1.3.10 as of this writing). Getters added locally may not exist in the published build — `getCommunityAddress` is one. Check `node_modules/@underware/pistols-sdk/dist/pistols_config.d.ts` before importing a new symbol.
+- **The npm release lags the local checkout** (1.3.2 vs 1.3.10 as of this writing) and the gap now reaches real code, not just symbols. It costs us three things, all resolved by a release:
+  - **The bundled manifests are older than the deployed world.** `purchase_random` exists on mainnet and is *absent from 1.3.2's `pack_token` ABI` — callable only because it takes no arguments, so `useContractMutation` compiles no calldata (see the contract-calls section). An entrypoint added later *with* arguments would simply be uncallable.
+  - **`constants` is ahead of the ABI it describes.** `PackType` has nine variants in TS, seven in the manifest's enum: `makeCustomEnum('PiratesDuelists5x')` fails to compile with `Enum has no 'PiratesDuelists5x' variant`. Treat the manifest's list as the real one, and re-check both after a bump.
+  - Getters added locally may not exist in the published build — `getCommunityAddress` is one. Check `node_modules/@underware/pistols-sdk/dist/pistols_config.d.ts` before importing a new symbol.
+- **Publishing bug worth fixing before the next release: `catalog:` leaks into the published manifest.** All 18 of 1.3.2's dependencies are literally `"catalog:"`, a pnpm protocol that only resolves inside the *source* monorepo's workspace — so consumers resolve none of them. We happen to declare 17 ourselves; the one we didn't, `universal-cookie` (imported by the SDK's `salt.tsx` / `debug.ts`), had to be installed into `client/` by hand. The cause is the SDK's `"publish": "npm publish --access public"` — **`pnpm publish` resolves catalogs to real ranges, `npm publish` does not.**
 - **Don't `link:` the local checkout.** Turbopack refuses to resolve a module whose real path escapes the project root, and every SDK import fails with "Module not found". Use the registry version; bump the catalog when a release lands.
-- Its `/hooks` and `/pistols/dojo` entry points (`useSdkTokenBalances`, `useController`, …) assume the full `@dojoengine/sdk` Dojo context, which we don't mount — we talk to Torii through `torii.ts` instead. Only pull those in if the Dojo context comes with them.
+- Its `/hooks` and `/pistols/dojo` entry points (`useSdkTokenBalances`, `useController`, …) assume the full `@dojoengine/sdk` Dojo context, which we don't mount — we talk to Torii through `torii.ts` instead. Only pull those in if the Dojo context comes with them. **Same for its call layer** (`createSystemCalls`, `contracts.gen.ts`): we take ABIs and pure helpers from the SDK and drive calls ourselves — see the contract-calls section.
 
 ## Intended stack (not yet present)
 

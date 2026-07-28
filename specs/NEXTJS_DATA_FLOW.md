@@ -21,8 +21,19 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`),
 | `src/components/providers/providers.tsx` | `Providers`: the shared `QueryClient` + `<Toaster />` |
 | `src/components/providers/StarknetProvider.tsx` | mainnet-only `StarknetConfig` + the module-scope `ControllerConnector` |
 | `src/hooks/use-controller.ts` | `useController()`: connect / disconnect / open Controller / username |
+| `src/dojo/contracts.ts` | `getPistolsContract(name)` → address + ABI, from the SDK manifest |
+| `src/dojo/calls.ts` | the approval / VRF calls that ride in front of a system call |
+| `src/hooks/contracts/` | **one file per world contract, one hook per entrypoint** |
 
 The one thing react-query legitimately holds for the chain layer is a **one-shot SDK promise that has no hook** — e.g. `controllerConnector.username()`, keyed `['controller_username', address]`. That is not wrapping a hook, and it keeps `useEffect` out of it.
+
+**Contract calls live in `src/hooks/contracts/<contract>.ts`** and follow the carve-out, not sections 1 and 2 — no API route, no server action. Rules, with the full rationale in `CLAUDE.md` § Contract calls:
+
+- **Reads** are `useReadContract` used bare, through `useContractRead<T>` (which resolves the contract and carries the return type — it adds no cache of its own). ABIs come from the SDK manifest at runtime; never vendor an `as const` copy.
+- **Writes** are `useContractMutation`, which is `account.execute` + `waitForTransaction`, *not* `useSendTransaction` — that hook resolves when the wallet accepts, so it cannot tell a landed transaction from one that reverted. This is a mutation over an SDK promise with no hook, which the carve-out allows; it is not a cache over a chain hook.
+- **Calldata is compiled from the ABI** (`new CallData(abi).compile`), never assembled by hand.
+- **Toasts** are the mutation's own, one per call, morphing `loading` → `success`/`error` at one id — see §6 for the two divergences from `useActionMutation`.
+- **Invalidation** belongs to the entrypoint's hook (`useInvalidateContractReads`), not the component: `useQueryInvalidate` cannot match starknet-react's single-object query keys.
 
 Everything that is not the chain goes through sections 1 and 2.
 
@@ -122,6 +133,12 @@ Mutation feedback is centralized in `useActionMutation` (`src/hooks/mutations/us
   - `onError`: `handleApiError` (`src/lib/client-utils`) logs the action name, params, and error to the console, then shows a `toast.error` with a close button and 5s duration.
 - **Success toasts**: not shown by default — success is communicated by the UI updating via query invalidation. Add ad-hoc `toast.success` in a component only when there is no visible data change.
 
+**[diverges] The chain layer's toasts are its own** (`src/hooks/contracts/use-contract-mutation.tsx`, §0). Same look, same `ElapsedTimeBadge`, same incrementing id — three deliberate differences:
+
+- **The lifecycle is inside `mutationFn`**, not `onMutate` / `onSettled`. The transaction hash only exists halfway through and the toast shows it while pending; and the toast must survive the observer callbacks react-query skips when a component unmounts mid-transaction.
+- **It morphs at one id** (`loading` → `success` / `error`) instead of dismiss-then-open, so a call never leaves two toasts behind. `handleApiError` takes an optional `toastId` for exactly this.
+- **Success is shown**, because a transaction often changes nothing on screen — the opposite of the server-action default above.
+
 ## What exists today
 
 Scaffolded and ready to build on:
@@ -132,15 +149,20 @@ Scaffolded and ready to build on:
 | `src/hooks/use-controller.ts` | Controller connection state + actions (§0) |
 | `src/hooks/queries/use-query-invalidate.ts` | `invalidateKey` / `invalidateKeys` |
 | `src/hooks/mutations/use-action-mutation.tsx` | generic server-action mutation wrapper |
+| `src/hooks/contracts/use-contract-read.ts` | `useContractRead<T>` + `useInvalidateContractReads` (§0) |
+| `src/hooks/contracts/use-contract-mutation.tsx` | generic contract-write wrapper: send, await, toast (§0) |
+| `src/hooks/contracts/use-{game,pack-token,ring-token}.ts` | one hook per entrypoint we call |
 | `src/lib/client-utils.ts` | `handleApiError` |
 | `src/components/ElapsedTimeBadge.tsx` | live timer for loading toasts |
 | `src/components/ui/Button.tsx` | the cva button primitive |
+| `src/components/pages/test/TestPage.tsx` | `/test`, the bench every contract hook is exercised from |
 
-Not yet created — add on first use: `src/app/api/query/`, `src/app/actions/`, `src/hooks/queries/use-*.ts`, `src/server/`.
+Not yet created — add on first use: `src/app/api/query/`, `src/app/actions/`, `src/hooks/queries/use-*.ts`, `src/server/`. **Nothing in sections 1 and 2 exists yet**: every read and write in the app today is a chain call under §0.
 
 ## Divergences from the ec-dapp original
 
-- **Chain carve-out** (section 0) — Starknet + Cartridge Controller instead of wagmi; the Dojo SDK is not wired up yet.
+- **Chain carve-out** (section 0) — Starknet + Cartridge Controller instead of wagmi; the Dojo SDK is not wired up yet. Contract calls are ours (`src/hooks/contracts/`) over the SDK's ABIs, not the SDK's own call layer.
+- **The chain layer has its own toast lifecycle** (§6) — inside `mutationFn`, morphing at one id, and it shows success.
 - **Providers live in `components/`**, not `app/` — `app/` is routing only (see `CODING_STYLE.md`).
 - **No zustand in the mutation layer**: the action-id counter is a module-level variable (repo rule: prefer native resources over wrapper libs). Zustand is only for client state that outlives a component — see `CODING_STYLE.md` § Client state.
 - **No SSE / app database**: external state is the chain, read through Torii and the Dojo layer.

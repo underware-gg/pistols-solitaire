@@ -1,7 +1,6 @@
 import { type Chain, mainnet, sepolia } from '@starknet-react/chains';
 import {
   ChainId,
-  type DojoManifest,
   getAdminAddress,
   getBankAddress,
   getBotPlayerAddress,
@@ -12,7 +11,6 @@ import {
   getGameAddress,
   getGameLoopAddress,
   getLordsAddress,
-  getManifest,
   getMatchmakerAddress,
   getPackTokenAddress,
   getRingTokenAddress,
@@ -31,9 +29,14 @@ import contractsJson from '@root/contracts.json';
 // Chain profiles: one per network we ship, with every chain-dependent value in one place.
 //
 // Ported from /Users/roger/Dev/Realms/LORE/packages/client-sn/src/dojo/config_profiles.ts.
-// Two deliberate differences: there is no local Katana profile (mainnet and sepolia only),
-// and a profile carries a single `manifest` — LORE splits every field into starknet/appchain
-// variants because it bridges to an appchain, and we do not.
+// Two deliberate differences: there is no local Katana profile (mainnet and sepolia only), and
+// LORE splits every network-dependent field into starknet/appchain variants because it bridges to
+// an appchain — we do not, so each field here is a single value.
+//
+// A profile deliberately does NOT carry the Dojo manifest: `networkId` is the key the SDK's own
+// `getManifest({ networkId })` takes, so anything that needs the manifest (or an ABI out of it)
+// asks the SDK for it — see `dojo/contracts.ts`. Keeping a copy on the profile would be a second
+// source for something the SDK already serves from one.
 //
 // `contractAddresses` and `tokens` are derived in `getProfileConfig()`. Which contracts are
 // tokens comes from `contracts.json` at the repo root — the same file that drives our Torii
@@ -65,7 +68,6 @@ export type ProfileConfig = {
   profileName: ProfileName;
   networkId: NetworkId;
   namespace: string;
-  manifest: DojoManifest;
   chain: Chain; // @starknet-react/chains chain for StarknetConfig
   chainName: ChainId; // chain name, and the section key into contracts.json
   rpcUrl: string;
@@ -84,7 +86,6 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     profileName: 'mainnet',
     networkId: NetworkId.MAINNET,
     namespace: NAMESPACE,
-    manifest: getManifest({ networkId: NetworkId.MAINNET }),
     chain: mainnet,
     chainName: ChainId.SN_MAIN,
     rpcUrl: 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_9',
@@ -98,7 +99,6 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     profileName: 'sepolia',
     networkId: NetworkId.SEPOLIA,
     namespace: NAMESPACE,
-    manifest: getManifest({ networkId: NetworkId.SEPOLIA }),
     chain: sepolia,
     chainName: ChainId.SN_SEPOLIA,
     rpcUrl: 'https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_9',

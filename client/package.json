@@ -37,6 +37,7 @@
     "starknet": "catalog:",
     "tailwind-merge": "catalog:",
     "three": "catalog:",
+    "universal-cookie": "^8.1.2",
     "zustand": "catalog:"
   },
   "devDependencies": {

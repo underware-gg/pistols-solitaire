@@ -148,7 +148,7 @@ importers:
         version: 5.101.4(react@19.2.8)
       '@underware/pistols-sdk':
         specifier: 'catalog:'
-        version: 1.3.2(@cartridge/connector@0.13.16(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@cartridge/controller@0.13.16(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@dojoengine/core@1.8.8(typescript@5.9.3))(@dojoengine/torii-client@1.8.2)(@starknet-react/chains@5.0.3)(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@tanstack/react-query@5.101.4(react@19.2.8))(react@19.2.8)(starknet@8.9.2)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        version: 1.3.2(@cartridge/connector@0.13.16(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@cartridge/controller@0.13.16(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@dojoengine/core@1.8.8(typescript@5.9.3))(@dojoengine/torii-client@1.8.2)(@starknet-react/chains@5.0.3)(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@tanstack/react-query@5.101.4(react@19.2.8))(react@19.2.8)(starknet@8.9.2)(universal-cookie@8.1.2)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -179,6 +179,9 @@ importers:
       three:
         specifier: 'catalog:'
         version: 0.185.1
+      universal-cookie:
+        specifier: ^8.1.2
+        version: 8.1.2
       zustand:
         specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
@@ -2626,6 +2629,10 @@ packages:
   cookie-es@1.2.3:
     resolution: {integrity: sha512-lXVyvUvrNXblMqzIRrxHb57UUVmqsSWlxqt3XIjCkUP0wDAf6uicO6KMbEgYrMNtEvWgWHwe42CKxPu9MYAnWw==}
 
+  cookie@1.1.1:
+    resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
+    engines: {node: '>=18'}
+
   cross-env@7.0.3:
     resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
     engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
@@ -3775,6 +3782,9 @@ packages:
 
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
+
+  universal-cookie@8.1.2:
+    resolution: {integrity: sha512-kcKzTGNsxVytujrYOvQbvh//QyFrA53HrzCGyzh6i9ujCww5gfPrLK0tG+jJD40SIIldiEjBNPPSR8fBMS21GA==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -6491,7 +6501,7 @@ snapshots:
 
   '@types/webxr@0.5.24': {}
 
-  '@underware/pistols-sdk@1.3.2(@cartridge/connector@0.13.16(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@cartridge/controller@0.13.16(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@dojoengine/core@1.8.8(typescript@5.9.3))(@dojoengine/torii-client@1.8.2)(@starknet-react/chains@5.0.3)(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@tanstack/react-query@5.101.4(react@19.2.8))(react@19.2.8)(starknet@8.9.2)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
+  '@underware/pistols-sdk@1.3.2(@cartridge/connector@0.13.16(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@cartridge/controller@0.13.16(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76))(@dojoengine/core@1.8.8(typescript@5.9.3))(@dojoengine/torii-client@1.8.2)(@starknet-react/chains@5.0.3)(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@tanstack/react-query@5.101.4(react@19.2.8))(react@19.2.8)(starknet@8.9.2)(universal-cookie@8.1.2)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
     dependencies:
       '@cartridge/connector': 0.13.16(@starknet-react/core@5.0.3(get-starknet-core@4.0.0)(react@19.2.8)(starknet@8.9.2)(typescript@5.9.3))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76)
       '@cartridge/controller': 0.13.16(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(zod@3.25.76)
@@ -6506,6 +6516,7 @@ snapshots:
       react: 19.2.8
       starknet: 8.9.2
       swr: 2.4.2(react@19.2.8)
+      universal-cookie: 8.1.2
       zustand: 5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
 
   '@use-gesture/core@10.3.1': {}
@@ -7334,6 +7345,8 @@ snapshots:
   convert-source-map@2.0.0: {}
 
   cookie-es@1.2.3: {}
+
+  cookie@1.1.1: {}
 
   cross-env@7.0.3:
     dependencies:
@@ -8541,6 +8554,10 @@ snapshots:
     optional: true
 
   undici-types@8.3.0: {}
+
+  universal-cookie@8.1.2:
+    dependencies:
+      cookie: 1.1.1
 
   universalify@2.0.1: {}
 
