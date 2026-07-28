@@ -4,6 +4,7 @@ import { useCursor } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import { type ReactNode, useState } from 'react';
 import { AlwaysDepth, LessEqualDepth, type Texture } from 'three';
+import { CARD_ART_HEIGHT } from '@/engine/card-art';
 import {
   CARD_ART_TINT,
   CARD_ASPECT,
@@ -37,6 +38,7 @@ export function Card3D({
   back,
   background = CARD_PAPER_COLOR,
   aspect = CARD_ASPECT,
+  height = CARD_ART_HEIGHT,
   pixelated = false,
   pin = false,
   pose,
@@ -68,7 +70,13 @@ export function Card3D({
   background?: string;
   /** The card's shape. Must be the aspect its art was rasterized at, or the art is stretched. */
   aspect?: number;
-  /** Magnify the front art with hard pixels — for the 50×75 deck in `public/deck/`. */
+  /**
+   * Texels down the front art — the table's VRAM budget, because how big a card is ever drawn is the
+   * table's business. `CARD_ART_HEIGHT` (a card brought to the camera) or `DECK_ART_HEIGHT` (a card
+   * that stays on the felt); see `card-art.ts`.
+   */
+  height?: number;
+  /** Magnify the front art with hard pixels — for a source drawn at its own pixel grid. */
   pixelated?: boolean;
   /** Never evict this card's art. For a small static deck that is all on the table at once. */
   pin?: boolean;
@@ -146,7 +154,7 @@ export function Card3D({
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
   children?: ReactNode;
 }) {
-  const art = useCardArt(frontUrl, { background, aspect, pixelated, pin });
+  const art = useCardArt(frontUrl, { background, aspect, height, pixelated, pin });
   // Whether the cursor is on *this* card, which is all the card decides for itself. `hovered` is the
   // table's answer to the same question, and either one lifts it.
   const [pointerOn, setPointerOn] = useState(false);
@@ -213,6 +221,10 @@ export function Card3D({
         than mutating `map` and remembering `needsUpdate` — and it carries `raised` for the same
         reason: `transparent` is part of three's program cache key, and it does not re-evaluate that
         key on a plain assignment.
+
+        Each key is **prefixed with its own face**, because these three are siblings: a card with
+        neither texture yet gave the front and the back the same `blank-false` and React warned about
+        a duplicate key on every card of a freshly loaded board.
       */}
       <mesh
         geometry={cardGeometry(aspect)}
@@ -220,7 +232,7 @@ export function Card3D({
         renderOrder={raised ? IN_HAND_RENDER_ORDER + depth : 0}
       >
         <meshStandardMaterial
-          key={`${art ? 'art' : 'blank'}-${raised}`}
+          key={`front-${art ? 'art' : 'blank'}-${raised}`}
           attach={`material-${CARD_FACE.front}`}
           map={art}
           color={art ? CARD_ART_TINT : background}
@@ -230,7 +242,7 @@ export function Card3D({
           depthFunc={raised ? AlwaysDepth : LessEqualDepth}
         />
         <meshStandardMaterial
-          key={`${back ? 'back' : 'blank'}-${raised}`}
+          key={`back-${back ? 'art' : 'blank'}-${raised}`}
           attach={`material-${CARD_FACE.back}`}
           map={back}
           color={back ? CARD_ART_TINT : CARD_PAPER_COLOR}

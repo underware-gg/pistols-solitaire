@@ -129,10 +129,10 @@ That single line is *both* "starts automatically" and "resume on refresh". **Dea
 
 ### Store API
 
-`newGame(seed?)` · `play(move)` · `collect(at)` · `drawFromStock()` · `collectAll()` · `undo()` · `showHint()` / `clearHint()` · `setDrawCount(1|3)` · `cycleCardBack()` · `resume()`
+`newGame(seed?)` · `play(move)` · `collect(at)` · `drawFromStock()` · `collectAll()` · `undo()` · `showHint()` / `clearHint()` · `setDrawCount(1|3)` · `setCardBack(back)` · `resume()`
 
 - **Read one field at a time** (`useSolitaireStore(s => s.state)`); a whole-store selector re-renders on every unrelated change.
-- `setDrawCount` **starts a new deal**, because the same deal is not equally solvable at 1 and 3 and keeping the board would silently change the rules mid-game.
+- `setDrawCount` **starts a new deal**, because the same deal is not equally solvable at 1 and 3 and keeping the board would silently change the rules mid-game. `setCardBack` is the opposite and keeps the board: the back is a texture the table reads, so switching it mid-game costs nothing and changes no rule.
 - `collectAll` applies its whole batch as **one** state change, so every card that can go home sets off at once and the damped poses fan them out on their own — which is what the cascade looks like.
 - `HISTORY_LIMIT` (400) caps the move list.
 
@@ -164,6 +164,7 @@ components/pages/solitaire/
 
 Same shape as `/bag`: the scene owns state, the chrome is `pointer-events-none` DOM over a transparent canvas with each control turning its own events back on, and poses are pure functions of state. The chrome owns **no** game state — everything comes from the store, which the keyboard also drives, so the two cannot disagree.
 
+- **The foot of the table holds the two settings**: `Draw 1|3` as a button that toggles (it restarts the game, so it is one decision with two values) and the card back as a `SegmentedControl`, because there are three and picking one directly beats cycling up to two steps to reach it. Its options are **derived from `CARD_BACKS`**, so a fourth back appears with no edit here.
 - **The icon row's labels are one shared line under it, not a popover per button.** The row is a `Action[]` table (`tip`, icon, handler, disabled) and the tip is also each button's `aria-label`, so the two can't drift. The line is always mounted at a fixed height and fades, because a tip appearing on hover would otherwise shove the icons up and down as the pointer crosses the row; the column around both stays `pointer-events-none` so the empty line never covers felt. The **row** clears the tip as well as each button — a browser dispatches no pointer events from a *disabled* control, so undoing the last move disables the button under the cursor and its own `onPointerLeave` never arrives (and hovering an already-disabled one shows no tip at all, for the same reason).
 
 **The canvas is mounted by the page, not a layout** — the opposite of `/bag`, and the comment in `app/solitaire/page.tsx` says why: `/bag` needs a layout because `/bag` and `/bag/<slug>` are sibling segments that would unmount the canvas; `/solitaire` has no children. **If game selection ever becomes `/solitaire/<game>`, that is the moment to move `SolitaireScene` into a `layout.tsx`.**
@@ -197,6 +198,7 @@ Keyboard (in the scene, because these are global): `Ctrl`/`⌘`+`Z` undo · `N` 
 - **The drop highlight is drawn at the drop point, not the pile's slot.** On a fanned column those are far apart — the slot is at the top and cards land at the bottom — so highlighting the slot lights up a spot the carried card is nowhere near and reads as the wrong column.
 - **Only a card `rules.canPickUp` allows gets a `hoverPose`.** A hover lift on a buried card promises a move that is not there.
 - **The 52 faces are not pinned in the art cache; only the back is.** See `ENGINE.md` § `card-art.ts` — pinning them would starve `/bag`.
+- **Every card is rasterized at `DECK_ART_HEIGHT`, not the default.** The deck's art is 1024×1536 and a card on this board is a couple of hundred pixels tall, so `/bag`'s zoom budget would cost twice the VRAM for detail this camera cannot reach. Pass it to `Card3D` *and* to the `useCardArt` call that loads the back — they are separate call sites and a mismatch just means two cache entries.
 
 ---
 

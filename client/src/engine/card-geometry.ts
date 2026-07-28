@@ -7,7 +7,7 @@ import * as THREE from 'three';
 //
 // **One geometry per aspect ratio, shared by every card of that shape.** Cards differ only in their
 // front texture, so a table never needs more than one; `cardGeometry` memoizes per aspect because
-// the app deals two different decks — Torii's 5:7 token art and the 2:3 pixel deck in
+// the app deals two different decks — Torii's 5:7 token art and the 2:3 painted deck in
 // `public/deck/` — and stretching either onto the other's mesh is visible immediately. Nothing here
 // needs a browser: the module is import-safe on the server.
 //
@@ -17,7 +17,7 @@ import * as THREE from 'three';
  * both 5:7, so the mesh, the back and the fronts all agree.
  */
 export const TOKEN_ASPECT = 5 / 7;
-/** The standard 52-card deck in `public/deck/`: every face and back is 50×75, i.e. exactly 2:3. */
+/** The standard 52-card deck in `public/deck/`: every face and back is 1024×1536, i.e. exactly 2:3. */
 export const STANDARD_ASPECT = 2 / 3;
 
 /** The default shape, kept as the name the token table has always used. */

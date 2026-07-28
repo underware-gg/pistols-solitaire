@@ -16,7 +16,7 @@ import type { Pile, PileSpec } from '@/solitaire/types';
 // their declared `fan`, so Klondike's seven columns and FreeCell's four cells would both be laid out by
 // this file without it knowing that either game exists.
 //
-// The card is the 2:3 pixel deck (`STANDARD_ASPECT`), narrower than `/bag`'s token cards — so
+// The card is the 2:3 painted deck (`STANDARD_ASPECT`), narrower than `/bag`'s token cards — so
 // `CARD_WIDTH` is deliberately never used here; every width goes through `cardWidth(ASPECT)`.
 //
 

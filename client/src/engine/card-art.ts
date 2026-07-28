@@ -6,11 +6,12 @@ import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/engine/card-geometry';
 //
 // Every source takes the same path. Torii serves a token's image (`tokenImageUrl()`), which for a
 // Pistols token is a ~750KB SVG with the artwork embedded in it; the token backs are PNGs in
-// `public/cards/`; the standard 52-card deck is 54 tiny PNGs in `public/deck/`. None of them can go
+// `public/cards/`; the standard 52-card deck is 1024×1536 JPEGs in `public/deck/`. None of them can go
 // straight to three's `TextureLoader`: `card_back.png` is 2996×4197 (~50MB of VRAM at full size), an
-// SVG has no raster size at all, and a 50×75 pixel-art face needs to be magnified with the *right*
-// filter. So every image is drawn into a canvas at the size the table actually needs and uploaded
-// from there — `drawImage` with explicit dimensions rasterizes an SVG at exactly that resolution.
+// SVG has no raster size at all, and a whole painted deck uploaded at source resolution is ~340MB of
+// VRAM for cards drawn a couple of hundred pixels tall. So every image is drawn into a canvas at the
+// size the table actually needs and uploaded from there — `drawImage` with explicit dimensions
+// rasterizes an SVG at exactly that resolution, and downsamples a photograph in one step.
 //
 // Drawing also normalizes the shape: the canvas is a card face of the requested `aspect` and the art
 // is centered inside it over card stock, so a collection whose art is square or 4:3 gets letterboxed
@@ -62,13 +63,26 @@ export const cardBackUrl = (game?: string): string =>
 export const CARD_ART_HEIGHT = 768;
 
 /**
+ * The same budget for the standard 52-card deck (`standard-deck.ts`), which is **not** sized for a
+ * zoomed card because nothing zooms one: a solitaire board is about 5.8 card heights tall, so a card
+ * is ~17% of the viewport — 310 device pixels on a 900px window at 2× DPR, ~480 on a large retina
+ * display. 512 covers both with headroom and costs ~930KB a face including mipmaps, so a whole deck
+ * plus its back is ~49MB. At `CARD_ART_HEIGHT` it would be ~113MB for art nobody ever sees at 1:1.
+ *
+ * It is a separate constant rather than a smaller `CARD_ART_HEIGHT` because the two decks are drawn at
+ * genuinely different sizes: `/bag` brings one card to the camera to be read, and this one never does.
+ */
+export const DECK_ART_HEIGHT = 512;
+
+/**
  * How many rasterized faces to keep — **three grid pages**, so paging back and forth across a big
  * collection is instant instead of re-fetching through Torii's slow image endpoint. Must stay
  * comfortably above one page (20), or eviction would dispose a texture still on the felt.
  *
- * A whole 52-card deck plus its backs is pinned rather than counted against this (see `pin`): they
- * are static local assets that are all on the table at once, so there is nothing to evict and no
- * page to churn against.
+ * The solitaire deck's 52 faces are counted against it like anything else — they fit under the cap
+ * while they are in play, so the LRU keeps them without being told to. Only the *back* is pinned (see
+ * `pin`), because every face-down card on the board wants it and a late arrival would flash blank
+ * stock across the whole table; pinning the faces as well would leave `/bag` seven free slots.
  */
 const CACHE_LIMIT = 60;
 
@@ -84,9 +98,13 @@ const ART_INSET = 1;
  * uneven pixel grid, which on a card face full of straight rules and pips reads as a wobble. At an
  * integer multiple every source pixel is exactly as wide as every other.
  *
- * 4× puts a 50×75 face at 200×300 — ~240KB of VRAM, so a full deck of 54 is ~13MB, and comfortably
- * sharp for a card that is at most ~200px tall on screen at this camera. It is the sharpness/VRAM
- * knob for the pixel decks, the way `CARD_ART_HEIGHT` is for token art.
+ * 4× puts a 50×75 face at 200×300 — ~240KB of VRAM, so a full deck of 54 is ~13MB. It is the
+ * sharpness/VRAM knob for a pixel deck, the way `CARD_ART_HEIGHT` is for token art.
+ *
+ * **Nothing in the app ships pixel art today** — `public/deck/` was a 50×75 deck and is now painted at
+ * 1024×1536 — so `pixelated` has no caller. It is kept because it is a property of a *source*, not of
+ * a page: the day a deck arrives drawn at its own pixel grid, magnifying it with anything else is
+ * wrong, and this is the measurement that says why.
  */
 const PIXEL_UPSCALE = 4;
 
@@ -249,7 +267,7 @@ const rasterize = async (
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Card art needs a 2D context');
   // Smoothing is what turns a magnified pixel into a gradient; off, every source pixel stays a
-  // hard-edged block, which is what the 50×75 deck is drawn to be seen as.
+  // hard-edged block, which is how art drawn *at* a pixel grid is meant to be seen.
   context.imageSmoothingEnabled = !pixelated;
   context.imageSmoothingQuality = 'high';
   context.fillStyle = background;
@@ -290,13 +308,16 @@ const evict = () => {
 
 /** How a card face is drawn. Every field is part of the cache key. */
 export type CardArtOptions = {
-  /** Texels down the face, for smooth art. Ignored when `pixelated` — see `PIXEL_UPSCALE`. */
+  /**
+   * Texels down the face, for smooth art: `CARD_ART_HEIGHT` for token art, `DECK_ART_HEIGHT` for the
+   * standard deck. Ignored when `pixelated` — see `PIXEL_UPSCALE`.
+   */
   height?: number;
   /** The stock the art is letterboxed onto, when it does not fill the face. */
   background?: string;
   /** The card's shape. Must match the mesh the texture goes on, or the art is stretched. */
   aspect?: number;
-  /** Magnify with hard pixels instead of smoothing — for the 50×75 deck in `public/deck/`. */
+  /** Magnify with hard pixels instead of smoothing — for a source drawn at its own pixel grid. */
   pixelated?: boolean;
   /** Never evict. For art that is on the table for the session: the backs, a whole small deck. */
   pin?: boolean;

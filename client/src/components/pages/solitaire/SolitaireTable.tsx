@@ -20,7 +20,15 @@ import {
   stockTop,
   winPose,
 } from '@/components/pages/solitaire/solitaire-layout';
-import { Card3D, CardSlot3D, Deck3D, FitCamera, useCardArt, useCardDrag } from '@/engine';
+import {
+  Card3D,
+  CardSlot3D,
+  Deck3D,
+  DECK_ART_HEIGHT,
+  FitCamera,
+  useCardArt,
+  useCardDrag,
+} from '@/engine';
 import type { Pose } from '@/engine/card-pose';
 import { backUrl, type Card, type CardBack, faceUrl } from '@/engine/standard-deck';
 import { canDropRun } from '@/solitaire/legal';
@@ -122,7 +130,15 @@ export function SolitaireTable({
   // so the LRU keeps them anyway — and pinning them would leave `/bag` six free slots out of sixty and
   // make its token art thrash for the rest of the session.
   //
-  const back = useCardArt(backUrl(cardBack), { aspect: ASPECT, pixelated: true, pin: true });
+  // `DECK_ART_HEIGHT`, not the default: the deck's art is 1024×1536 and a card on this board is a couple
+  // of hundred pixels tall, so uploading it at `/bag`'s zoom budget would cost twice the VRAM for
+  // detail no camera on this table can reach.
+  //
+  const back = useCardArt(backUrl(cardBack), {
+    aspect: ASPECT,
+    height: DECK_ART_HEIGHT,
+    pin: true,
+  });
 
   const piles = state.order.map(id => state.piles[id]);
   const stock = piles.find(pile => pile.kind === 'stock');
@@ -391,7 +407,7 @@ export function SolitaireTable({
               frontUrl={card.faceUp ? faceUrl(card.suit, card.rank) : undefined}
               back={back}
               aspect={ASPECT}
-              pixelated
+              height={DECK_ART_HEIGHT}
               faceDown={!card.faceUp}
               pose={
                 won
@@ -457,7 +473,7 @@ export function SolitaireTable({
             frontUrl={faceUrl(card.suit, card.rank)}
             back={back}
             aspect={ASPECT}
-            pixelated
+            height={DECK_ART_HEIGHT}
             // Already face down, and yawed, so the pose *is* the turn — `faceDown` would only set the
             // tilt this has and drop the yaw with it.
             pose={returnedTo(stock, board, from) ?? from}

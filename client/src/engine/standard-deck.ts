@@ -6,10 +6,11 @@
 // the same cards into meshes. Keeping the deck here rather than inside the rules is what lets a card
 // be *rendered* by any page — a hand of cards in a duel is the same 52 faces.
 //
-// The art is `public/deck/<suit>/<rank>.png` plus `public/deck/backs/<colour>.png`: 54 PNGs, every one
-// **50×75**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's shape, nothing
-// is letterboxed and the stock colour behind it is never seen — see `card-art.ts`'s `pixelated` path
-// for how a face that small is magnified.
+// The art is `public/deck/<suit>/<rank>.jpg` plus `public/deck/backs/<colour>.jpg`: painted JPEGs,
+// every one **1024×1536**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's
+// shape, nothing is letterboxed and the stock colour behind it is never seen — and because it is far
+// larger than a card is ever drawn, it is rasterized down to `DECK_ART_HEIGHT` (`card-art.ts`) rather
+// than magnified.
 //
 
 export const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
@@ -57,14 +58,17 @@ export const freshDeck = (decks = 1): Card[] => {
 // Art
 //
 /** The card's own face, from `public/deck/`. */
-export const faceUrl = (suit: Suit, rank: Rank): string => `/deck/${suit}/${rank}.png`;
+export const faceUrl = (suit: Suit, rank: Rank): string => `/deck/${suit}/${rank}.jpg`;
 
 /**
- * The backs on offer. `public/deck/backs/` ships ten colours — black, blue, cyan, green, grey,
- * orange, pink, purple, red, yellow — and adding one to this tuple is the whole change needed to
- * offer it, because the store cycles the tuple and the url is derived from the name.
+ * The backs on offer, **in the order they are offered** — the first is what a new player gets, and
+ * the solitaire chrome renders the tuple as a segmented control. Adding one is the whole change
+ * needed to offer it, because the url is derived from the name.
+ *
+ * `public/deck/backs/` also holds `joker.jpg`, which is deliberately **not** here: it is a joker
+ * *face*, filed with the backs because it is the one card the 52-card deck has no place for.
  */
-export const CARD_BACKS = ['blue', 'red'] as const;
+export const CARD_BACKS = ['black', 'blue', 'red'] as const;
 export type CardBack = (typeof CARD_BACKS)[number];
 
-export const backUrl = (back: CardBack): string => `/deck/backs/${back}.png`;
+export const backUrl = (back: CardBack): string => `/deck/backs/${back}.jpg`;

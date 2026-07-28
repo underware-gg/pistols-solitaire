@@ -81,7 +81,7 @@ type Pose = { position: [number, number, number]; rotation: [number, number, num
 
 A rounded rect extruded to a card's thickness, re-cut into three material groups (`CARD_FACE.front` / `.back` / `.edge`) so each face takes its own material and texture.
 
-- **One geometry per aspect ratio**, memoized: `cardGeometry(aspect)`. Two decks of different shapes are in play — Torii's 5:7 token art (`TOKEN_ASPECT`) and the 2:3 pixel deck in `public/deck/` (`STANDARD_ASPECT`) — and stretching either onto the other's mesh is obvious at a glance.
+- **One geometry per aspect ratio**, memoized: `cardGeometry(aspect)`. Two decks of different shapes are in play — Torii's 5:7 token art (`TOKEN_ASPECT`) and the 2:3 painted deck in `public/deck/` (`STANDARD_ASPECT`) — and stretching either onto the other's mesh is obvious at a glance.
 - `CARD_GEOMETRY` and `CARD_ASPECT` are kept as the token table's names (`CARD_ASPECT === TOKEN_ASPECT`).
 - **Widths go through `cardWidth(aspect)`.** A layout for a non-default deck must never use `CARD_WIDTH`, which is the default-aspect width. Same for `cardCornerRadius(aspect)`.
 - `ExtrudeGeometry` emits *both* caps in one group and the side walls in another, so front and back would share a material. `buildCardGeometry` splits the caps in half — **front/back decided by vertex z, not by three's ordering** — and normalizes the extrusion's raw-coordinate UVs over the card box.
@@ -116,7 +116,7 @@ const group = usePoseAnimation(pose, { initial, delay, lift, moveLambda });
 
 Every image takes the same path: fetch → validate → retry → draw into a card-shaped canvas → `CanvasTexture` → LRU cache with disposal.
 
-Nothing goes straight to `TextureLoader`: `card_back.png` is 2996×4197 (~50MB of VRAM at full size), a token SVG has no raster size at all, and a 50×75 pixel-art face needs the *right* magnification filter. `drawImage` with explicit dimensions is what rasterizes an SVG at a chosen resolution.
+Nothing goes straight to `TextureLoader`: `card_back.png` is 2996×4197 (~50MB of VRAM at full size), a token SVG has no raster size at all, and the 1024×1536 painted deck is ~340MB of VRAM at source resolution for cards drawn a couple of hundred pixels tall. `drawImage` with explicit dimensions is what rasterizes an SVG at a chosen resolution, and what downsamples a photograph in one step.
 
 ```ts
 loadCardArt(url, { height, background, aspect, pixelated, pin })
@@ -124,12 +124,15 @@ useCardArt(url, { ...same })  // → Texture | undefined
 ```
 
 - **Every option is part of the cache key** (`url@height@background@aspect@pixelated`). Two decks can want the same image on different stock or at a different filter and must not share an entry.
+- **`height` is a per-table VRAM budget, and there are two.** `CARD_ART_HEIGHT` (768) is sized for a card brought to the *camera* — `/bag`'s zoom, which fills ~77% of the viewport. `DECK_ART_HEIGHT` (512) is for a card that never leaves the felt: a solitaire board is ~5.8 card heights tall, so a card is ~310 device pixels on a 900px window at 2× DPR and ~480 on a large retina display. Using 768 there would cost ~113MB for a 53-card deck instead of ~49MB, for detail no camera on that table can reach. **`Card3D` takes `height` as a prop for exactly this reason** — how big a card is ever drawn is the table's business, not the engine's.
 - **This is the one fetch in the app not on react-query**, deliberately: a texture is a GPU resource that must be *disposed* on eviction, which a query cache cannot do. `NEXTJS_DATA_FLOW.md` §1 prohibits `useEffect` for *app data*, not for loading images.
 - Drawing **letterboxes** art of a different aspect onto card stock rather than stretching it. `background` is what the letterbox is filled with; the blank face before the texture lands uses the same colour, so a card doesn't paint cream and then turn dark. **The rim stays paper** on purpose — art is printed on stock, and the edge is where the stock shows.
 - `pin: true` never evicts. For art on the table for the whole session: a card back, or a small static deck.
-  - **Pin sparingly.** `CACHE_LIMIT` is 60 total. Pinning a 52-card deck would leave `/bag` six free slots and make its token art thrash for the rest of the session — so the solitaire *faces* are unpinned (they fit under the cap while in play, so the LRU keeps them anyway) and only the *back* is pinned.
+  - **Pin sparingly.** `CACHE_LIMIT` is 60 total. Pinning a 52-card deck would leave `/bag` seven free slots and make its token art thrash for the rest of the session — so the solitaire *faces* are unpinned (they fit under the cap while in play, so the LRU keeps them anyway) and only the *back* is pinned.
 
 #### The `pixelated` path, and why the upscale must be an integer
+
+**Nothing in the app ships pixel art today** — `public/deck/` used to be a 50×75 deck and is now painted at 1024×1536 — so `pixelated` has no caller. It is kept because it is a property of a *source*, not of a page: the day a deck arrives drawn at its own pixel grid, magnifying it with anything else is wrong, and the following is the measurement that says why.
 
 A 50×75 face rasterized to `CARD_ART_HEIGHT` (768) is 10.24× — so some source pixels land 10 canvas pixels wide and others 11. **Nearest-neighbour magnification at a fractional scale gives a visibly uneven pixel grid**, which on a face full of straight rules and pips reads as a wobble. So `pixelated` ignores `height` and uses `PIXEL_UPSCALE`, a whole number (4 → 200×300, ~240KB a face).
 
@@ -178,7 +181,7 @@ The card owns exactly one thing itself: **whether the cursor is on it.** Everyth
 | Prop | Notes |
 |---|---|
 | `frontUrl` | Absent → blank stock. A card is never held back waiting for its texture; it appears on the blank card when it lands. |
-| `back`, `background`, `aspect`, `pixelated`, `pin` | Passed through to the art layer. `aspect` **must** match the aspect the art was rasterized at. |
+| `back`, `background`, `aspect`, `height`, `pixelated`, `pin` | Passed through to the art layer. `aspect` **must** match the aspect the art was rasterized at; `height` is the table's texel budget (`CARD_ART_HEIGHT` / `DECK_ART_HEIGHT`). |
 | `pose`, `initial`, `delay` | The animation. See `usePoseAnimation`. |
 | `faceDown` | Selects `faceDownPose(pose)` — the same slot, back up. **Passing it *is* the turn-over animation.** |
 | `inHand` / `grabbed` | Draw over everything. See the depth traps below. `grabbed` additionally uses `GRAB_LAMBDA` and drops the arc. |
@@ -241,8 +244,9 @@ const { drag, begin, cancel } = useCardDrag<Payload>({ height, onDrop });
 Pure data and url builders; no three.js, no React. `SUITS`, `RANKS` (ascending, so the index *is* the value — see `rankValue`), `Card`, `isRed`, `cardId`, `freshDeck(decks)`, `faceUrl`, `CARD_BACKS`, `backUrl`.
 
 - `cardId` carries a **deck number**, because Spider and its kin play with two decks and two identical Kings must be distinguishable — React keys, drag payloads and persisted move lists all lean on it being unique.
-- Art is `public/deck/<suit>/<rank>.png` plus `public/deck/backs/<colour>.png` — 54 PNGs, every one **50×75**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's shape nothing is letterboxed and the stock colour is never seen.
-- `public/deck/backs/` ships ten colours (black, blue, cyan, green, grey, orange, pink, purple, red, yellow). **Adding one to the `CARD_BACKS` tuple is the whole change needed to offer it**, because the url is derived from the name.
+- Art is `public/deck/<suit>/<rank>.jpg` plus `public/deck/backs/<colour>.jpg` — painted JPEGs, every one **1024×1536**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's shape nothing is letterboxed and the stock colour is never seen; because it is far larger than a card is ever drawn, it is rasterized down to `DECK_ART_HEIGHT`. At ~600KB a file the whole deck is ~31MB of assets, so a first deal is a real download — that is the number to watch if the deck grows.
+- `public/deck/backs/` ships **black, blue and red**, and `CARD_BACKS` is the order they are offered in — the first is the default, and `SolitairePage` renders the tuple as a segmented control. **Adding one to the tuple is the whole change needed to offer it**, because the url is derived from the name and the control is derived from the tuple.
+  - `backs/joker.jpg` is deliberately **not** in `CARD_BACKS`: it is a joker *face*, filed with the backs because the 52-card deck has no place for it.
 
 ### `index.ts` — the barrel
 
@@ -273,7 +277,7 @@ For `<Html transform>`, drei maps 1px to `scale * 10/400` units of its parent's 
    - hover transforms (`hoveredCardPose`, `hoveredDeckPose`).
    Check whether your content is symmetric about the origin; if not, compute a shift (§4, `camera-fit.ts`).
 4. **Write the scene** — a `'use client'` component holding the `<Canvas flat shadows dpr={[1,2]} gl={{alpha:true}}>`, the keyboard, and any view state. Inside it: `<FitCamera>`, the lights straight from `BOARD`, the shadow-catcher plane, the slots, then the cards.
-5. **Write the table** — a component *inside* the Canvas that maps state to `<Card3D>`/`<Deck3D>`, keyed by stable card id, in **one flat list**. Nesting a list per pile/group looks equivalent and is not: React keys an inner array's fragment by slot index, so a card that moves between two of them unmounts and remounts, lands on its new pose the frame it mounts, and the move plays as a cut. Pass `aspect` (and `pixelated`) consistently to the geometry and the art.
+5. **Write the table** — a component *inside* the Canvas that maps state to `<Card3D>`/`<Deck3D>`, keyed by stable card id, in **one flat list**. Nesting a list per pile/group looks equivalent and is not: React keys an inner array's fragment by slot index, so a card that moves between two of them unmounts and remounts, lands on its new pose the frame it mounts, and the move plays as a cut. Pass `aspect` (and `height`) consistently to the geometry and the art.
 6. **Write the chrome** — DOM over the canvas, `pointer-events-none` on the wrapper, `pointer-events-auto` per control.
 7. **Verify in a real browser.** See §7.
 

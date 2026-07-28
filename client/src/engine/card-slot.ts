@@ -23,9 +23,9 @@ const TEXTURE_HEIGHT = 512;
 /** Border thickness, in card heights — "thick", i.e. read as a drawn edge and not as a hairline. */
 const BORDER_WIDTH = 0.017;
 /** Dash and gap, in border widths. */
-const DASH = 2.6;
+const DASH = 2.0;
 const GAP = 2;
-const COLOR = '#ffffff';
+const COLOR = '#ffffffbb';
 
 //
 // One texture per card shape, like `cardGeometry` — the app deals a 5:7 token deck and a 2:3

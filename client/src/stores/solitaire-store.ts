@@ -79,7 +79,7 @@ type SolitaireState = {
   showHint: () => void;
   clearHint: () => void;
   setDrawCount: (count: 1 | 3) => void;
-  cycleCardBack: () => void;
+  setCardBack: (back: CardBack) => void;
   /** Rebuild `state` from what was persisted, or note that there is nothing to rebuild. */
   resume: () => void;
 };
@@ -193,10 +193,9 @@ export const useSolitaireStore = create<SolitaireState>()(
         get().newGame();
       },
 
-      cycleCardBack: () =>
-        set(current => ({
-          cardBack: CARD_BACKS[(CARD_BACKS.indexOf(current.cardBack) + 1) % CARD_BACKS.length],
-        })),
+      // Purely cosmetic and takes effect immediately — the back is a texture the table reads, so
+      // switching it mid-game costs nothing and changes no rule.
+      setCardBack: back => set({ cardBack: back }),
 
       resume: () => {
         const { seed, moves, gameId, drawCount } = get();

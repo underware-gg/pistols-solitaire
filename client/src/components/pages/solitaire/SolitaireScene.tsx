@@ -71,8 +71,8 @@ export function SolitaireScene({ className }: { className?: string }) {
 
   return (
     <div className={cn('absolute inset-0', className)}>
-      {/* `flat` keeps three's tone mapping off the card art — ACES would quietly desaturate a pixel deck
-       * whose colours are already flat and deliberate. */}
+      {/* `flat` keeps three's tone mapping off the card art — ACES would quietly desaturate a painted
+       * deck whose parchment and gilt are already graded. */}
       <Canvas
         flat
         shadows

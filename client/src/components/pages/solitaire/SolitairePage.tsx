@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { SolitaireScene } from '@/components/pages/solitaire/SolitaireScene';
 import { Button } from '@/components/ui/Button';
-import { CARD_BACKS } from '@/engine/standard-deck';
+import { SegmentedControl, type SegmentedOption } from '@/components/ui/SegmentedControl';
+import { CARD_BACKS, type CardBack } from '@/engine/standard-deck';
 import { cn } from '@/lib/cn';
 import { rulesFor } from '@/solitaire/rules';
 import { useSolitaireStore } from '@/stores/solitaire-store';
@@ -26,6 +27,17 @@ type Action = {
   disabled?: boolean;
 };
 
+/**
+ * The backs on offer, in the deck's own order — **derived from `CARD_BACKS` rather than written out**,
+ * so adding a back to that tuple puts a segment here with no edit at all. The names are the labels:
+ * `Button` already renders in `small-caps`, so the tuple's lowercase reads as titling.
+ */
+const BACK_OPTIONS: SegmentedOption<CardBack>[] = CARD_BACKS.map(back => ({
+  value: back,
+  label: back,
+  ariaLabel: `${back} card back`,
+}));
+
 export function SolitairePage() {
   const [tip, setTip] = useState<string | null>(null);
 
@@ -40,7 +52,7 @@ export function SolitairePage() {
   const showHint = useSolitaireStore(s => s.showHint);
   const collectAll = useSolitaireStore(s => s.collectAll);
   const setDrawCount = useSolitaireStore(s => s.setDrawCount);
-  const cycleCardBack = useSolitaireStore(s => s.cycleCardBack);
+  const setCardBack = useSolitaireStore(s => s.setCardBack);
 
   const won = state?.won ?? false;
 
@@ -144,15 +156,15 @@ export function SolitairePage() {
           >
             Draw {drawCount}
           </Button>
-          <Button
-            variant="secondary"
+          {/* A segmented control rather than a cycling button: there are three backs now, and picking
+           * one directly is a click where cycling to it is up to two. */}
+          <SegmentedControl
             size="sm"
-            aria-label="Card back"
-            onClick={cycleCardBack}
-            disabled={CARD_BACKS.length < 2}
-          >
-            {cardBack}
-          </Button>
+            label="Card back"
+            options={BACK_OPTIONS}
+            value={cardBack}
+            onChange={setCardBack}
+          />
         </div>
       </div>
     </main>

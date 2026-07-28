@@ -24,7 +24,12 @@ export { Deck3D } from '@/engine/Deck3D';
 export { FitCamera } from '@/engine/FitCamera';
 
 export { cameraAt, fitDistance, type HalfExtents, visibleAt } from '@/engine/camera-fit';
-export { type CardArtOptions, CARD_ART_HEIGHT, loadCardArt } from '@/engine/card-art';
+export {
+  type CardArtOptions,
+  CARD_ART_HEIGHT,
+  DECK_ART_HEIGHT,
+  loadCardArt,
+} from '@/engine/card-art';
 export {
   CARD_ART_TINT,
   CARD_ASPECT,
