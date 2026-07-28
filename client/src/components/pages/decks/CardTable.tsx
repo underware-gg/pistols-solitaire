@@ -20,7 +20,7 @@ import {
   zoomBackdropDepth,
   zoomBackdropPlane,
   zoomPose,
-} from '@/components/pages/bag/table-layout';
+} from '@/components/pages/decks/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
 import { tokenImageUrl } from '@/dojo/torii';
 import {
@@ -48,7 +48,7 @@ import { useSolitaireStore } from '@/stores/solitaire-store';
 // re-tints the felt under a live 3D scene without the scene knowing a colour exists.
 //
 // The component is fully controlled: which deck is open, which page, which card is zoomed all come
-// in as props, so the DOM chrome in `BagPage` and the scene can never disagree about the
+// in as props, so the DOM chrome in `DecksPage` and the scene can never disagree about the
 // view. Poses come from `table-layout.ts`, the travel from `usePoseAnimation`.
 //
 
@@ -70,7 +70,7 @@ export type TableDeck = {
 };
 
 /**
- * A deck whose cards are files rather than tokens: `/bag/solitaire`, the standard deck. Absent —
+ * A deck whose cards are files rather than tokens: `/deck/solitaire`, the standard deck. Absent —
  * i.e. for every collection — a card's art comes from Torii's image endpoint, it is the token shape,
  * and its caption is its token number.
  *

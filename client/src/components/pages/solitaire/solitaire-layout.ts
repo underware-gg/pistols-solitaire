@@ -7,7 +7,7 @@ import type { Pile, PileSpec } from '@/solitaire/types';
 //
 // Every position on the solitaire board, as a pure function of the game state.
 //
-// Same discipline as `/bag`'s `table-layout.ts`: one `BOARD` block holds every number, read at call time
+// Same discipline as `/decks`'s `table-layout.ts`: one `BOARD` block holds every number, read at call time
 // so a change to it is the whole edit; distances are in **card heights** and nothing is in pixels,
 // because `FitCamera` frames whatever this lays out; and **every angle is in degrees**, converted on the
 // way into a `Pose` by `radians()` and never used raw.
@@ -16,7 +16,7 @@ import type { Pile, PileSpec } from '@/solitaire/types';
 // their declared `fan`, so Klondike's seven columns and FreeCell's four cells would both be laid out by
 // this file without it knowing that either game exists.
 //
-// The card is the 2:3 painted deck (`STANDARD_ASPECT`), narrower than `/bag`'s token cards — so
+// The card is the 2:3 painted deck (`STANDARD_ASPECT`), narrower than `/decks`'s token cards — so
 // `CARD_WIDTH` is deliberately never used here; every width goes through `cardWidth(ASPECT)`.
 //
 
@@ -89,7 +89,7 @@ export const BOARD = {
   dropRadius: 0.75,
 
   //--------------------------------
-  // the camera — `/bag`'s, verbatim, so both tables are seen from the same chair
+  // the camera — `/decks`'s, verbatim, so both tables are seen from the same chair
   //
   fov: 34,
   /** A direction from the board's centre, not an angle: ~76° above the felt, so a flat card reads. */
@@ -122,7 +122,7 @@ export const BOARD = {
   winSpin: 40,
 
   //--------------------------------
-  // the lighting — `/bag`'s numbers, for the same reason as the camera
+  // the lighting — `/decks`'s numbers, for the same reason as the camera
   //
   lightAmbient: 0.85,
   lightKeyPosition: [0, 7, 3.0] as [number, number, number],
@@ -133,12 +133,12 @@ export const BOARD = {
   //--------------------------------
   // the shadows
   //
-  /** Half-width of the key light's shadow box, in cards. Wider than `/bag`'s: the board is wider. */
+  /** Half-width of the key light's shadow box, in cards. Wider than `/decks`'s: the board is wider. */
   shadowExtent: 10,
   shadowNear: 0.5,
   shadowFar: 30,
   /**
-   * Twice `/bag`'s, because the same map is spread over a much wider board — at 1024 the shadow edges
+   * Twice `/decks`'s, because the same map is spread over a much wider board — at 1024 the shadow edges
    * down a long tableau column visibly stair-step.
    */
   shadowMapSize: 2048,
@@ -149,7 +149,7 @@ export const BOARD = {
   // hover
   //
   hoverLift: 0.1,
-  /** Degrees a hovered card turns toward the player. Gentler than `/bag`'s — these cards overlap. */
+  /** Degrees a hovered card turns toward the player. Gentler than `/decks`'s — these cards overlap. */
   hoverTilt: 6,
   hoverScale: 1.03,
   deckHoverLift: 0.05,
@@ -176,7 +176,7 @@ export type BoardMetrics = { columns: number; rows: number; shiftZ: number };
  * a card's height of wasted felt at the top: the board would sit low and cramped. Shifting everything by
  * half the overhang puts the content's own centre on the origin and the margins come out equal.
  *
- * This is exactly the problem `/bag`'s `gridShiftX` solves for its pile, one axis over.
+ * This is exactly the problem `/decks`'s `gridShiftX` solves for its pile, one axis over.
  */
 const zExtent = (rows: number) => {
   const rowZ = (row: number) => (row - (rows - 1) / 2) * CARD_HEIGHT * BOARD.rowGap;
@@ -264,7 +264,7 @@ export const pilePose = (pile: Pile | PileSpec, board: BoardMetrics): Pose => {
  *
  * A deck is a group whose cards carry their own `FACE_DOWN` (`stockCardPose`), so handing it a pose that
  * is already turned face up composes the two rotations: −90° then +90° is zero, and the stack stands
- * bolt upright facing the camera instead of lying on the felt. `/bag` has the same contract — its
+ * bolt upright facing the camera instead of lying on the felt. `/decks` has the same contract — its
  * `deckPose` is unrotated and its `deckCardPose` supplies the flip.
  */
 export const deckPose = (pile: Pile | PileSpec, board: BoardMetrics): Pose => {

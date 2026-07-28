@@ -1,6 +1,6 @@
 # The card engine (`client/src/engine/`)
 
-Everything needed to put animated 3D playing cards on a table, and **nothing about any particular game**. `/bag` and `/solitaire` both import it; it is why the second table cost a fraction of the first.
+Everything needed to put animated 3D playing cards on a table, and **nothing about any particular game**. `/decks` and `/solitaire` both import it; it is why the second table cost a fraction of the first.
 
 Binding for all code under `client/src/engine/` and for any page that draws cards. Read [`CODING_STYLE.md`](./CODING_STYLE.md) first — this document adds to it, never overrides it. For the solitaire rules layer built on top, see [`SOLITAIRE.md`](./SOLITAIRE.md).
 
@@ -14,7 +14,7 @@ Binding for all code under `client/src/engine/` and for any page that draws card
 - A tableau, a foundation, a token collection, a duel hand is **not**. Those are the page's or the rules layer's.
 - Numbers a person tunes by eye — grid spacing, hover lift, camera angle, fan offsets — belong in the consuming page's own `*-layout.ts`, **not here**.
 
-That last point is why several components take a **function** rather than reading a constant: `Card3D` takes `hoverPose`, `Deck3D` takes `cardPose` and `hoverPose`. It is what let `Card3D`/`Deck3D` move out of `pages/bag/` without dragging `TABLE` with them, and it is the test to apply to anything new: *if it needs a number from a layout, take the number (or the function) as a prop.*
+That last point is why several components take a **function** rather than reading a constant: `Card3D` takes `hoverPose`, `Deck3D` takes `cardPose` and `hoverPose`. It is what let `Card3D`/`Deck3D` move out of `pages/decks/` without dragging `TABLE` with them, and it is the test to apply to anything new: *if it needs a number from a layout, take the number (or the function) as a prop.*
 
 `engine/` is a deliberate extra top-level module beside `lib/` + `hooks/` + `components/`. The bar for another one is the same: **a cohesive subsystem with its own vocabulary that more than one page consumes** — not merely "several related files".
 
@@ -126,12 +126,12 @@ useCardArtState(url, { ...same })  // → { art?: Texture, settled: boolean }
 ```
 
 - **Every option is part of the cache key** (`url@height@background@aspect@pixelated`). Two decks can want the same image on different stock or at a different filter and must not share an entry.
-- **`height` is a per-table VRAM budget, and there are two.** `CARD_ART_HEIGHT` (768) is sized for a card brought to the *camera* — `/bag`'s zoom, which fills ~77% of the viewport. `DECK_ART_HEIGHT` (512) is for a card that never leaves the felt: a solitaire board is ~5.8 card heights tall, so a card is ~310 device pixels on a 900px window at 2× DPR and ~480 on a large retina display. Using 768 there would cost ~113MB for a 53-card deck instead of ~49MB, for detail no camera on that table can reach. **`Card3D` takes `height` as a prop for exactly this reason** — how big a card is ever drawn is the table's business, not the engine's.
+- **`height` is a per-table VRAM budget, and there are two.** `CARD_ART_HEIGHT` (768) is sized for a card brought to the *camera* — `/decks`'s zoom, which fills ~77% of the viewport. `DECK_ART_HEIGHT` (512) is for a card that never leaves the felt: a solitaire board is ~5.8 card heights tall, so a card is ~310 device pixels on a 900px window at 2× DPR and ~480 on a large retina display. Using 768 there would cost ~113MB for a 53-card deck instead of ~49MB, for detail no camera on that table can reach. **`Card3D` takes `height` as a prop for exactly this reason** — how big a card is ever drawn is the table's business, not the engine's.
 - **This is the one fetch in the app not on react-query**, deliberately: a texture is a GPU resource that must be *disposed* on eviction, which a query cache cannot do. `NEXTJS_DATA_FLOW.md` §1 prohibits `useEffect` for *app data*, not for loading images.
 - Drawing **letterboxes** art of a different aspect onto card stock rather than stretching it. `background` is what the letterbox is filled with; the blank face before the texture lands uses the same colour, so a card doesn't paint cream and then turn dark. **The rim ignores it** and stays `CARD_EDGE_COLOR` — art is printed on stock, and the edge is where the stock shows.
 - **`settled` is the difference between "still coming" and "there is none"**, and `art` alone cannot say which: both are `undefined`. Only `useCardArtState` reports it, because only a card that is *waiting* for its face needs it — a fetch that gives up settles with no art, so a card dealt face down (`Card3D`'s `revealOnLoad`) turns over onto blank stock instead of hanging face down forever on a token the indexer 404s.
 - `pin: true` never evicts. For art on the table for the whole session: a card back, or a small static deck.
-  - **Pin sparingly.** `CACHE_LIMIT` is 60 total. Pinning a 52-card deck would leave `/bag` seven free slots and make its token art thrash for the rest of the session — so the solitaire *faces* are unpinned (they fit under the cap while in play, so the LRU keeps them anyway) and only the *back* is pinned.
+  - **Pin sparingly.** `CACHE_LIMIT` is 60 total. Pinning a 52-card deck would leave `/decks` seven free slots and make its token art thrash for the rest of the session — so the solitaire *faces* are unpinned (they fit under the cap while in play, so the LRU keeps them anyway) and only the *back* is pinned.
 
 #### The `pixelated` path, and why the upscale must be an integer
 
@@ -173,9 +173,9 @@ visibleAt(fov, depth, aspect)              // frustum size at a depth
 ```
 
 - **This is why nothing is in pixels.** A layout states how much felt it needs, in card heights; the camera works out the rest. Change the grid and the shot re-frames itself.
-- The distance is **damped, not set**, which makes a change of view part of the animation: on `/bag` the decks are framed tightly and the table widens to take a dealt grid, so the pull-back *is* opening a deck. A layout whose extents never change simply never moves it.
+- The distance is **damped, not set**, which makes a change of view part of the animation: on `/decks` the decks are framed tightly and the table widens to take a dealt grid, so the pull-back *is* opening a deck. A layout whose extents never change simply never moves it.
 - **`cameraAt` exists so poses in front of the camera can be derived from where the camera *will be*.** Anything positioned relative to the camera (a zoomed card, a dimmer plane) must use it rather than the live camera object, or it will chase a moving target while the camera damps between views.
-- **A layout that is not symmetric about the origin must be slid, not framed where it lies.** `FitCamera` aims at the origin, so framing an off-centre box means backing off until the *widest* side fits and padding the other with the difference — visibly lopsided, and it has been a real bug twice (`/bag`'s `gridShiftX` on x, solitaire's `boardMetrics().shiftZ` on z). Measure both directions to the content's outer *edge* (not its centre), and shift everything by half the overhang.
+- **A layout that is not symmetric about the origin must be slid, not framed where it lies.** `FitCamera` aims at the origin, so framing an off-centre box means backing off until the *widest* side fits and padding the other with the difference — visibly lopsided, and it has been a real bug twice (`/decks`'s `gridShiftX` on x, solitaire's `boardMetrics().shiftZ` on z). Measure both directions to the content's outer *edge* (not its centre), and shift everything by half the overhang.
 
 ### `Card3D.tsx` — one card
 
@@ -250,7 +250,7 @@ Pure data and url builders; no three.js, no React. `SUITS`, `RANKS` (ascending, 
 - `cardId` carries a **deck number**, because Spider and its kin play with two decks and two identical Kings must be distinguishable — React keys, drag payloads and persisted move lists all lean on it being unique.
 - Art is `public/deck/<suit>/<rank>.jpg` plus `public/deck/backs/<colour>.jpg` — painted JPEGs, every one **1024×1536**, i.e. `STANDARD_ASPECT` exactly. Because the source is already the card's shape nothing is letterboxed and the stock colour is never seen; because it is far larger than a card is ever drawn, it is rasterized down to `DECK_ART_HEIGHT`. At ~600KB a file the whole deck is ~31MB of assets, so a first deal is a real download — that is the number to watch if the deck grows.
 - `public/deck/backs/` ships **black, blue and red**, and `CARD_BACKS` is the order they are offered in — the first is the default, and `SolitairePage` renders the tuple as a segmented control. **Adding one to the tuple is the whole change needed to offer it**, because the url is derived from the name and the control is derived from the tuple.
-  - `backs/joker.jpg` is deliberately **not** in `CARD_BACKS`: it is a joker *face*, filed with the backs because the 52-card deck has no place for it. It is exported as `JOKER_URL` rather than as a `Card`, because it has no suit and no rank for the rules layer to hold — `/bag/solitaire` shows it as the deck's 53rd card and nothing deals it.
+  - `backs/joker.jpg` is deliberately **not** in `CARD_BACKS`: it is a joker *face*, filed with the backs because the 52-card deck has no place for it. It is exported as `JOKER_URL` rather than as a `Card`, because it has no suit and no rank for the rules layer to hold — `/deck/solitaire` shows it as the deck's 53rd card and nothing deals it.
 
 ### `index.ts` — the barrel
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSelectedLayoutSegment } from 'next/navigation';
+import { useRouter, useSelectedLayoutSegments } from 'next/navigation';
 import {
   createContext,
   type ReactNode,
@@ -12,30 +12,31 @@ import {
   useRef,
   useState,
 } from 'react';
-import { CardTable, type TableDeck } from '@/components/pages/bag/CardTable';
-import { SOLITAIRE_DECK } from '@/components/pages/bag/solitaire-deck';
-import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/bag/table-layout';
+import { CardTable, type TableDeck } from '@/components/pages/decks/CardTable';
+import { SOLITAIRE_DECK } from '@/components/pages/decks/solitaire-deck';
+import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/decks/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
 import { useSettingsStore } from '@/stores/settings-store';
 
 //
-// The table itself, mounted once for every `/bag*` route, and the view state that goes with
-// it. `BagPage` and `TokenCardsPage` are the chrome laid over it — see `children` below.
+// The table itself, mounted once for both deck routes, and the view state that goes with
+// it. `DecksPage` and `DeckCardsPage` are the chrome laid over it — see `children` below.
 //
 // **Why this is the layout and not part of a page**: which deck is open is in the URL now, so
-// `/bag` and `/bag/karat` are sibling route segments and Next unmounts one page
-// component to mount the other. A canvas that unmounts loses its WebGL context, and with it every
-// animation this table is built on — the decks would appear already swept aside, the camera already
-// pulled back, and the return to the table would be a cut. Mounted from `app/bag/layout.tsx`
-// it simply stays, and a route change is one prop moving, which is exactly what the poses damp
-// toward. So the scene lives above the pages, and the pages read it back through
-// {@link useBagView}.
+// `/decks` and `/deck/karat` are separate routes and Next unmounts one page component to mount the
+// other. A canvas that unmounts loses its WebGL context, and with it every animation this table is
+// built on — the decks would appear already swept aside, the camera already pulled back, and the
+// return to the table would be a cut. Mounted from `app/(table)/layout.tsx` — the route group that
+// is the two routes' only common parent — it simply stays, and a route change is one prop moving,
+// which is exactly what the poses damp toward. So the scene lives above the pages, and the pages
+// read it back through {@link useDecksView}.
 //
-// The open deck is read from the URL rather than held in state: `useSelectedLayoutSegment()` gives
-// the child segment, i.e. the slug, or null on `/bag`. That makes a deck linkable, the
-// browser's Back button the way out of a deck, and this component's only real state the two things
-// no one would want in a URL — which page of a big deck is dealt, and which card is in the air.
+// The open deck is read from the URL rather than held in state. The layout sits two levels above the
+// slug (`(table)` → `deck` → `[slug]`), so it takes the whole path below it — `['deck', slug]` on an
+// open deck, `['decks']` on the list. That makes a deck linkable, the browser's Back button the way
+// out of a deck, and this component's only real state the two things no one would want in a URL —
+// which page of a big deck is dealt, and which card is in the air.
 //
 
 const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
@@ -43,7 +44,7 @@ const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
 /** The game whose table this is — the one collection set the `pistols` filter keeps. */
 const HOME_GAME = 'pistols';
 
-type BagView = {
+type DecksView = {
   /**
    * Every deck in table order: each collection, whether or not the account holds any of it, and the
    * house's own solitaire deck last.
@@ -69,23 +70,28 @@ type BagView = {
   stepZoom: (delta: number) => void;
 };
 
-const BagContext = createContext<BagView | undefined>(undefined);
+const DecksContext = createContext<DecksView | undefined>(undefined);
 
-/** The table's view state, for the chrome drawn over it. Throws outside `<BagScene>`. */
-export function useBagView(): BagView {
-  const context = useContext(BagContext);
+/** The table's view state, for the chrome drawn over it. Throws outside `<DecksScene>`. */
+export function useDecksView(): DecksView {
+  const context = useContext(DecksContext);
   if (context === undefined) {
-    throw new Error('useBagView must be used within a <BagScene>');
+    throw new Error('useDecksView must be used within a <DecksScene>');
   }
   return context;
 }
 
-/** Route of the deck a slug names. The one place `/bag/<slug>` is spelled out. */
-export const deckHref = (slug: string): string => `/bag/${slug}`;
+/** The segment every deck hangs off, and the one that is not the deck list. */
+const DECK_SEGMENT = 'deck';
 
-export function BagScene({ children }: { children: ReactNode }) {
+/** Route of the deck a slug names. The one place `/deck/<slug>` is spelled out. */
+export const deckHref = (slug: string): string => `/${DECK_SEGMENT}/${slug}`;
+
+export function DecksScene({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const slug = useSelectedLayoutSegment();
+  // The path below this layout: `['deck', slug]` with a deck open, `['decks']` on the list.
+  const segments = useSelectedLayoutSegments();
+  const slug = segments[0] === DECK_SEGMENT ? (segments[1] ?? null) : null;
   const { isLoading, balances } = useTokenBalances();
   const gameFilter = useSettingsStore(s => s.gameFilter);
 
@@ -107,7 +113,7 @@ export function BagScene({ children }: { children: ReactNode }) {
   //
   // Which collections are on the felt at all — the player's `gameFilter`, except that the deck the
   // URL names always stays. A link into another game's deck is a legitimate way onto this table, and
-  // filtering it away would leave `TokenCardsPage` titling an empty felt.
+  // filtering it away would leave `DeckCardsPage` titling an empty felt.
   const tokens = useMemo(
     () =>
       gameFilter === 'all'
@@ -129,7 +135,7 @@ export function BagScene({ children }: { children: ReactNode }) {
           }))),
       // And the house's own deck, last on the felt. It is not a collection and not the account's, so
       // neither the game filter nor the wait above touches it: it is there from the first frame,
-      // which is what makes `/bag/solitaire` a link that works with no wallet connected at all.
+      // which is what makes `/deck/solitaire` a link that works with no wallet connected at all.
       SOLITAIRE_DECK,
     ],
     [balances, isLoading, tokens],
@@ -137,7 +143,7 @@ export function BagScene({ children }: { children: ReactNode }) {
 
   //
   // The table lays decks out by position, so it wants an index; the URL names one. An unknown slug
-  // resolves to no deck at all, which is the same view as `/bag` — the route validates the
+  // resolves to no deck at all, which is the same view as `/decks` — the route validates the
   // slug and 404s, so this only shows for the frame before that lands.
   //
   const index = slug ? decks.findIndex(deck => deck.slug === slug) : -1;
@@ -188,7 +194,7 @@ export function BagScene({ children }: { children: ReactNode }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (zoomed) setZoomed(null);
-        else if (slug) router.push('/bag');
+        else if (slug) router.push('/decks');
         return;
       }
       if (!zoomed) return;
@@ -201,7 +207,7 @@ export function BagScene({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [zoomed, slug, router, stepZoom]);
 
-  const view = useMemo<BagView>(
+  const view = useMemo<DecksView>(
     () => ({
       decks,
       deck,
@@ -227,7 +233,7 @@ export function BagScene({ children }: { children: ReactNode }) {
         selected={selected}
         page={page}
         zoomed={zoomed}
-        onSelect={target => router.push(target === null ? '/bag' : deckHref(decks[target].slug))}
+        onSelect={target => router.push(target === null ? '/decks' : deckHref(decks[target].slug))}
         onZoom={setZoomed}
         onTurnPage={view.turnPage}
       />
@@ -235,7 +241,7 @@ export function BagScene({ children }: { children: ReactNode }) {
       {/* The chrome, from whichever page is mounted. Inert by default so every pixel of felt stays
        * clickable — each control turns its own pointer events back on. */}
       <div className="pointer-events-none relative z-10 flex flex-1 flex-col p-6">
-        <BagContext.Provider value={view}>{children}</BagContext.Provider>
+        <DecksContext.Provider value={view}>{children}</DecksContext.Provider>
       </div>
     </main>
   );

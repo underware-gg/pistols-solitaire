@@ -2,25 +2,25 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useBagView } from '@/components/pages/bag/BagScene';
+import { useDecksView } from '@/components/pages/decks/DecksScene';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 
 //
-// The `/bag/<slug>` route: one collection dealt out on the table, a page at a time.
+// The `/deck/<slug>` route: one collection dealt out on the table, a page at a time.
 //
-// Like `BagPage` this is only the chrome over a table it does not own — the deck is already
-// open by the time this mounts, because `BagScene` reads the slug from the URL. Which is why
-// nothing here needs the slug: the deck the URL names is simply what `useBagView` serves.
+// Like `DecksPage` this is only the chrome over a table it does not own — the deck is already
+// open by the time this mounts, because `DecksScene` reads the slug from the URL. Which is why
+// nothing here needs the slug: the deck the URL names is simply what `useDecksView` serves.
 //
-// Backing out is a navigation to `/bag`, which closes the deck by moving one prop in the
+// Backing out is a navigation to `/decks`, which closes the deck by moving one prop in the
 // scene — so the browser's Back button and the button below do exactly the same thing, and so does
 // Escape (handled in the scene, since it is global).
 //
 
-export function TokenCardsPage({ className }: { className?: string }) {
+export function DeckCardsPage({ className }: { className?: string }) {
   const router = useRouter();
-  const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useBagView();
+  const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useDecksView();
 
   if (!deck) return null;
 
@@ -35,7 +35,7 @@ export function TokenCardsPage({ className }: { className?: string }) {
           size="sm"
           aria-label="Back to the table"
           className="mt-1 pointer-events-auto"
-          onClick={() => router.push('/bag')}
+          onClick={() => router.push('/decks')}
         >
           <ChevronLeft className="size-5" />
         </Button>

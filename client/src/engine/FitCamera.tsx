@@ -10,7 +10,7 @@ import { damp } from '@/engine/card-pose';
 // Holds the camera at a fixed angle over the table and slides it along that line to `distance`.
 //
 // The distance is **damped rather than set**, which is what makes a change of view part of the
-// animation: on `/bag` the decks are framed tightly and the table widens to take a dealt grid, so the
+// animation: on `/decks` the decks are framed tightly and the table widens to take a dealt grid, so the
 // pull-back *is* opening a deck. A layout that never changes its extents simply never moves it.
 //
 // Nothing here decides where to be — `distance` comes from `fitDistance` in the page's layout, so

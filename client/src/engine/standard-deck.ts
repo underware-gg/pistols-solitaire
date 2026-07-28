@@ -77,6 +77,6 @@ export const backUrl = (back: CardBack): string => `/deck/backs/${back}.jpg`;
 /**
  * The joker's face — the one card in `public/deck/` that {@link freshDeck} never deals, because no
  * solitaire uses it. It has a url rather than a `Card` for exactly that reason: it is art without a
- * suit or a rank, so the rules layer has nowhere to put it. `/bag` shows it at the end of the deck.
+ * suit or a rank, so the rules layer has nowhere to put it. `/decks` shows it at the end of the deck.
  */
 export const JOKER_URL = '/deck/backs/joker.jpg';

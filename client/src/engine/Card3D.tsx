@@ -111,7 +111,7 @@ export function Card3D({
    * The card the player is holding: drawn **over any dimmer** rather than depth-tested against
    * it, so it is lit the same on the felt, in the air and at the camera.
    *
-   * On `/bag` the dimmer is a black plane between the hand and the table (`ZoomBackdrop`), and it
+   * On `/decks` the dimmer is a black plane between the hand and the table (`ZoomBackdrop`), and it
    * darkens whatever is behind it — including this card while it is still travelling in. The plane
    * travels with the card for that reason, but it cannot be behind *two* cards at once, which is
    * exactly what stepping along the row asks of it: one card is at the camera and the next is still on

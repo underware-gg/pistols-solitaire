@@ -70,7 +70,7 @@ export const CARD_ART_HEIGHT = 768;
  * plus its back is ~49MB. At `CARD_ART_HEIGHT` it would be ~113MB for art nobody ever sees at 1:1.
  *
  * It is a separate constant rather than a smaller `CARD_ART_HEIGHT` because the two decks are drawn at
- * genuinely different sizes: `/bag` brings one card to the camera to be read, and this one never does.
+ * genuinely different sizes: `/decks` brings one card to the camera to be read, and this one never does.
  */
 export const DECK_ART_HEIGHT = 512;
 
@@ -82,7 +82,7 @@ export const DECK_ART_HEIGHT = 512;
  * The solitaire deck's 52 faces are counted against it like anything else — they fit under the cap
  * while they are in play, so the LRU keeps them without being told to. Only the *back* is pinned (see
  * `pin`), because every face-down card on the board wants it and a late arrival would flash blank
- * stock across the whole table; pinning the faces as well would leave `/bag` seven free slots.
+ * stock across the whole table; pinning the faces as well would leave `/decks` seven free slots.
  */
 const CACHE_LIMIT = 60;
 

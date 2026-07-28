@@ -70,7 +70,7 @@ const BATCH_SPREAD = 0.3;
 const batchGap = (cards: number) => Math.min(DRAW_STAGGER, BATCH_SPREAD / Math.max(1, cards - 1));
 /**
  * How long a card handed back to the stock stays mounted after the game says it is in the deck: the
- * flight plus the batch's own spread. `/bag` keeps a returning card alive the same way.
+ * flight plus the batch's own spread. `/decks` keeps a returning card alive the same way.
  */
 const RETURN_MS = 900;
 
@@ -127,11 +127,11 @@ export function SolitaireTable({
   // already, and a back arriving late would flash blank stock across the whole board.
   //
   // The 52 faces are deliberately *not* pinned. They all fit under `CACHE_LIMIT` while they are in play,
-  // so the LRU keeps them anyway — and pinning them would leave `/bag` six free slots out of sixty and
+  // so the LRU keeps them anyway — and pinning them would leave `/decks` six free slots out of sixty and
   // make its token art thrash for the rest of the session.
   //
   // `DECK_ART_HEIGHT`, not the default: the deck's art is 1024×1536 and a card on this board is a couple
-  // of hundred pixels tall, so uploading it at `/bag`'s zoom budget would cost twice the VRAM for
+  // of hundred pixels tall, so uploading it at `/decks`'s zoom budget would cost twice the VRAM for
   // detail no camera on this table can reach.
   //
   const back = useCardArt(backUrl(cardBack), {

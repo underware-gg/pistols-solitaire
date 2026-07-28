@@ -8,7 +8,7 @@ import * as THREE from 'three';
 // block is free to move, and a change to the grid re-frames the shot on its own rather than needing
 // a matching change to a camera distance somewhere else.
 //
-// Both tables use it identically: `/bag` frames a grid of decks or a dealt page, `/solitaire` frames
+// Both tables use it identically: `/decks` frames a grid of decks or a dealt page, `/solitaire` frames
 // a Klondike board. What differs is only the box each one asks for.
 //
 

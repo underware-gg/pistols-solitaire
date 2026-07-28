@@ -1,4 +1,4 @@
-import type { TableDeck } from '@/components/pages/bag/CardTable';
+import type { TableDeck } from '@/components/pages/decks/CardTable';
 import { STANDARD_ASPECT } from '@/engine/card-geometry';
 import { cardId, faceUrl, JOKER_URL, RANKS, SUITS } from '@/engine/standard-deck';
 
@@ -12,11 +12,11 @@ import { cardId, faceUrl, JOKER_URL, RANKS, SUITS } from '@/engine/standard-deck
 // (the 2:3 shape, the caption saying "Q of Hearts" instead of `#4211`) comes out of the same object.
 //
 // **It is on the table whether or not an account is connected**, and before balances arrive: it is
-// the house's deck, not the player's holdings, so `/bag/solitaire` is a link that always works. The
+// the house's deck, not the player's holdings, so `/deck/solitaire` is a link that always works. The
 // game filter leaves it alone for the same reason.
 //
 
-/** The deck's place in the URL — `/bag/solitaire`. Also its identity in the table's deck list. */
+/** The deck's place in the URL — `/deck/solitaire`. Also its identity in the table's deck list. */
 export const SOLITAIRE_SLUG = 'solitaire';
 
 const JOKER_ID = 'joker';

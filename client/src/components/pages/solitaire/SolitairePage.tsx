@@ -14,7 +14,7 @@ import { useSolitaireStore } from '@/stores/solitaire-store';
 //
 // The `/solitaire` route: the board, and the chrome laid over it.
 //
-// Like `/bag`, the chrome is ordinary DOM above a transparent canvas and is **`pointer-events-none` by
+// Like `/decks`, the chrome is ordinary DOM above a transparent canvas and is **`pointer-events-none` by
 // default** so every pixel of felt stays clickable — each control turns its own pointer events back on.
 // It owns no game state: everything comes from `solitaire-store`, which is also what the keyboard in
 // `SolitaireScene` drives, so the two can never disagree about the board.
