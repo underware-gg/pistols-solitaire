@@ -18,6 +18,7 @@ import { StarterPackMark } from '@/components/pages/decks/StarterPack';
 import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/decks/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
+import { MAIN_GAME } from '@/dojo/profiles';
 import { type StarterPackOffer, useStarterPackOffer } from '@/hooks/use-starter-pack';
 import { useSettingsStore } from '@/stores/settings-store';
 
@@ -41,10 +42,9 @@ import { useSettingsStore } from '@/stores/settings-store';
 // which page of a big deck is dealt, and which card is in the air.
 //
 
+// `PROFILE.tokens` is already `MAIN_GAME` first (`profiles.ts`), so this is the table's order too:
+// our own collections lead, guest games follow.
 const ERC721_TOKENS = PROFILE.tokens.filter(token => token.type === 'ERC721');
-
-/** The game whose table this is — the one collection set the `pistols` filter keeps. */
-const HOME_GAME = 'pistols';
 
 type DecksView = {
   /**
@@ -58,7 +58,8 @@ type DecksView = {
   isLoading: boolean;
   /**
    * The free starter pack while the player is still owed one, or nothing at all. Asked once, here,
-   * and served to both pages: the table marks the deck it lands in, and that deck's page claims it.
+   * and served to both pages: the table marks the duelists deck, that deck's page claims it, and the
+   * offer stays until the duelists it minted are dealt onto the felt.
    */
   starterPack?: StarterPackOffer;
   /** Zero-based index of the dealt page, and how many pages the open deck has (1 when closed). */
@@ -123,7 +124,7 @@ export function DecksScene({ children }: { children: ReactNode }) {
     () =>
       gameFilter === 'all'
         ? ERC721_TOKENS
-        : ERC721_TOKENS.filter(token => token.game === HOME_GAME || token.slug === slug),
+        : ERC721_TOKENS.filter(token => token.game === MAIN_GAME || token.slug === slug),
     [gameFilter, slug],
   );
 
@@ -145,8 +146,9 @@ export function DecksScene({ children }: { children: ReactNode }) {
         name: token.name,
         cardIds: balances.erc721[token.address] ?? [],
         loading: isLoading,
-        // The one deck with something waiting in it gets the mark — and, being empty, the click
-        // that goes with it (`CardTable`).
+        // The duelists deck, while a free pack is owed, gets the mark — and, being empty, the click
+        // that goes with it (`CardTable`). The offer names the deck, so moving the mark to another
+        // collection is one line in `use-starter-pack.ts` and nothing here.
         notice: token.slug === starterPack?.slug ? <StarterPackMark /> : undefined,
       })),
       // And the house's own deck, last on the felt. It is not a collection and not the account's, so

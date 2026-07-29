@@ -25,8 +25,8 @@ export function DeckCardsPage({ className }: { className?: string }) {
 
   if (!deck) return null;
 
-  // The free pack is claimed on the page of the deck it lands in — the deck whose mark on the felt is
-  // what brought the player here. Everywhere else the offer is simply not this page's business.
+  // The free pack is claimed on the page of the deck its duelists land in — the deck whose mark on the
+  // felt is what brought the player here. Everywhere else the offer is not this page's business.
   const claim = starterPack?.slug === deck.slug ? starterPack : undefined;
 
   // Where the card in hand sits among the cards on the felt — and so which way there is left to go.
@@ -55,9 +55,11 @@ export function DeckCardsPage({ className }: { className?: string }) {
 
       {/*
         The claim, in the middle of the table: the deck is parked off to the side and this deck is
-        empty until it lands, so the centre of the felt is exactly the empty space it is about to
-        fill. It leaves as soon as the transaction does (the offer goes with it), and the pack that
-        replaces it arrives on its own through Torii.
+        empty until the cards land, so the centre of the felt is exactly the space it is about to
+        fill. **It outlives its own transaction** — through `Claiming…` and then `Indexing…` — and goes
+        when the duelists arrive through Torii's subscription, which is also what deals them onto the
+        felt underneath it. So the button is replaced by the thing it was promising, in one step, with
+        nothing to navigate.
       */}
       {claim && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

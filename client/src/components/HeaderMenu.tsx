@@ -1,6 +1,6 @@
 'use client';
 
-import { House, type LucideIcon, LogIn, LogOut, Menu, Brush } from 'lucide-react';
+import { House, type LucideIcon, LogIn, LogOut, Menu, Brush, ScrollText } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -26,7 +26,8 @@ export function HeaderMenu({ className }: { className?: string }) {
   const { isConnected, isConnecting, connect, disconnect } = useController();
   const cycleTableColor = useSettingsStore(s => s.cycleTableColor);
   const router = useRouter();
-  const isHome = usePathname() === '/';
+  // A route already open is dropped from the menu rather than shown as a no-op.
+  const pathname = usePathname();
 
   const action = isConnected
     ? { label: 'Disconnect', icon: LogOut, run: disconnect }
@@ -53,7 +54,7 @@ export function HeaderMenu({ className }: { className?: string }) {
             onClick={() => setIsOpen(false)}
           />
           <ul className="absolute left-0 z-40 mt-1 min-w-40 rounded-xl border border-ps-line bg-ps-panel p-1 shadow-card">
-            {!isHome && (
+            {pathname !== '/' && (
               <MenuButton
                 icon={House}
                 label="Home"
@@ -64,6 +65,16 @@ export function HeaderMenu({ className }: { className?: string }) {
               />
             )}
             <MenuButton icon={Brush} label="Switch table" onClick={cycleTableColor} />
+            {pathname !== '/contracts' && (
+              <MenuButton
+                icon={ScrollText}
+                label="Contracts"
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/contracts');
+                }}
+              />
+            )}
             <MenuButton
               icon={action.icon}
               label={action.label}

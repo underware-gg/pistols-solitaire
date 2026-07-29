@@ -40,7 +40,7 @@ export const CARD_BACK_URL = '/cards/card_back.png';
 export const CARD_BACK_ALT_URL = '/cards/card_back2.png';
 
 /** The game whose cards use {@link CARD_BACK_URL} — `contracts.json`'s `game`, not a display name. */
-const HOME_GAME = 'pistols';
+const MAIN_GAME = 'pistols';
 
 /**
  * Which back a collection's cards are printed on, by its `game`.
@@ -49,7 +49,7 @@ const HOME_GAME = 'pistols';
  * between them — a per-collection back would want a map in `contracts.json` instead.
  */
 export const cardBackUrl = (game?: string): string =>
-  game === HOME_GAME ? CARD_BACK_URL : CARD_BACK_ALT_URL;
+  game === MAIN_GAME ? CARD_BACK_URL : CARD_BACK_ALT_URL;
 
 /**
  * Height in texels every card face is rasterized to; the width follows from `CARD_ASPECT`.

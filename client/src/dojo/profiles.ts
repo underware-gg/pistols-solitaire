@@ -47,6 +47,9 @@ import contractsJson from '@root/contracts.json';
 
 export type ProfileName = 'mainnet' | 'sepolia';
 
+/** Every profile we ship, in the order a page listing all of them should show them. */
+export const PROFILE_NAMES: ProfileName[] = ['mainnet', 'sepolia'];
+
 export type TokenType = 'ERC20' | 'ERC721';
 
 /** One ERC-20/ERC-721 contract, as indexed by our Torii. */
@@ -154,21 +157,43 @@ const pistolsAddresses = (networkId: NetworkId): Record<string, string> => {
 // them. Addresses for the `pistols` game still come from the manifest, which is authoritative
 // for the world's own deployments; other games exist only in contracts.json.
 //
-type ContractsJsonEntry = {
+/** One entry of a network's `contracts` array, verbatim — including the disabled ones. */
+export type ContractEntry = {
   game: string;
   slug: string;
   name: string;
   type: string;
   address: string;
+  block?: number;
   bgColor?: string;
   enabled?: boolean;
 };
 
+/**
+ * The game this app *is* — `contracts.json`'s `game`, not a display name. Its contracts lead
+ * every list we build, so a guest game can never come first.
+ */
+export const MAIN_GAME = 'pistols';
+
+/**
+ * Every `contracts.json` entry for a network: **`pistols` first**, everything else in file order.
+ *
+ * The one reader of that file's shape — `profileTokens` filters it to the enabled ones, the
+ * `/contracts` page lists all of them, and both inherit the ordering from here rather than
+ * sorting again. The partition is stable, so a game's own entries keep their file order (which
+ * is the order `contracts.json` wants them indexed in).
+ */
+export const contractEntries = (chainName: ChainId): ContractEntry[] => {
+  const entries =
+    (contractsJson as Record<string, { contracts?: ContractEntry[] }>)[chainName]?.contracts ?? [];
+  return [
+    ...entries.filter(entry => entry.game === MAIN_GAME),
+    ...entries.filter(entry => entry.game !== MAIN_GAME),
+  ];
+};
+
 const profileTokens = (chainName: ChainId, pistols: Record<string, string>): TokenContract[] =>
-  (
-    (contractsJson as Record<string, { contracts?: ContractsJsonEntry[] }>)[chainName]?.contracts ??
-    []
-  )
+  contractEntries(chainName)
     .filter(entry => entry.enabled === true)
     .map(entry => ({
       game: entry.game,
