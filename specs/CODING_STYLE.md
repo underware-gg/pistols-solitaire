@@ -1,75 +1,71 @@
 # Coding Style
 
-Rules for all code written in this repo. Referenced from `CLAUDE.md`; followed for all new code.
+Binding rules for all code in this repo. Referenced from `CLAUDE.md`.
 
-Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`) — that repo is the upstream reference implementation. Divergences from it are marked **[diverges]** and are deliberate; everything else should be kept in sync.
+Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`), the upstream reference. Keep in sync; **[diverges]** marks a deliberate difference — don't "fix" those back.
 
-**Only the code style comes from ec-dapp.** ec-dapp is an Ethereum/EVM app; **this project is Starknet only** — Cairo contracts, `@starknet-react/core`, the Cartridge Controller, Torii. Never carry an EVM dependency, address type, ABI convention or wallet library across from it. Where its rules name an EVM tool, the Starknet analogue applies (see the chain-layer bullets under **Conventions**).
+**Only the style comes from ec-dapp.** It is an EVM app; **this project is Starknet only** (Cairo, `@starknet-react/core`, Cartridge Controller, Torii). Never carry an EVM dependency, address type, ABI convention or wallet library across. Where an upstream rule names an EVM tool, the Starknet analogue applies.
 
 ## Formatting
 
-- **Biome** is the formatter and linter.
-- **One root `biome.json` for the whole workspace** — no per-package rule overrides. `client/biome.json` exists only as an `"extends": "//"` stub so Biome resolves the root config when run from the package.
-- **[diverges] Biome is active on `client/` only.** `torii/` and `contracts.json` predate the standard and are not linted; widening the scope means a large reformat diff, so it's a deliberate call, not an oversight.
-- **2-space indentation**, single quotes, semicolons, 120-column lines.
-- **[diverges] Tailwind directives are parsed, not excluded.** `css.parser.tailwindDirectives: true` lets Biome lint and format `main.css` instead of ignoring it (ec-dapp excludes the file; Biome 2.5+ no longer requires that).
+- **Biome** is formatter and linter, configured by one root `biome.jsonc`; `client/biome.jsonc` is an `"extends": "//"` stub.
+- 2-space indentation, single quotes, semicolons, 100 columns.
+- **[diverges] Biome runs on `client/` only** — `torii/` and `contracts.json` predate the standard.
+- **[diverges] Tailwind directives are parsed, not excluded**, so `main.css` is linted and formatted.
+- **Rules ec-dapp downgraded to `warn`/`off` are its tracked debt, not permission** — we have no such legacy, so treat them as errors.
 - Match the surrounding code's idiom: comment density, naming, structure.
 
 ## File layout: `app/` is routing only
 
-**[diverges]** `client/src/app/` holds only what Next.js itself requires — `layout.tsx`, `page.tsx`, route handlers (`api/`), server actions (`actions/`), `favicon`/metadata files. Everything else lives in `client/src/components/`.
+**[diverges]** `client/src/app/` holds only what Next.js requires — `layout.tsx`, `page.tsx`, `api/`, `actions/`, metadata files. Everything else lives in `components/`. (Full directory map: `CLAUDE.md` § Client.)
 
-- **A route file is a mount point, nothing more.** `app/page.tsx` imports one component and renders it: `<HomePage />`. Route markup, state and layout belong in `components/pages/home/HomePage.tsx`, not in `page.tsx`.
-- **[diverges] One folder per page under `components/pages/`.** The page component lives in `components/pages/<page>/` — `pages/home/HomePage.tsx` for `/` — and **every component built specifically for that page sits beside it in the same folder**. A component only leaves the page folder when it is genuinely generic (a connect button, a badge, a `ui/` primitive) or when a second page starts using it; then it moves up to `components/` (or `components/ui/`) and both pages import it from there.
-- **Providers are components**, not route files: `components/providers/` (`providers.tsx` exports `Providers`; one file per provider next to it). `app/layout.tsx` imports `Providers` from there.
-- **Everything composable, everything in `components/`** — shared primitives in `components/ui/`, page-specific components in `components/pages/<page>/`, cross-page feature components at the top level of `components/`. New UI is a component in `components/` first; a route only ever grows an import.
-- Hooks go in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer, `contracts/` for on-chain calls (all three per `NEXTJS_DATA_FLOW.md`), the root of `hooks/` for chain and UI hooks.
-
-```
-client/src/
-  app/            layout.tsx, page.tsx, api/, actions/ — nothing else
-  components/     Header.tsx, ControllerButton.tsx, NavigationCard.tsx, providers/, ui/
-  components/pages/home/   HomePage.tsx — the `/` route, plus any component only it uses
-  hooks/          use-controller.ts, contracts/, queries/, mutations/
-  stores/         settings-store.ts — zustand client state (see Client state below)
-```
-
-- **`hooks/contracts/` is one file per *contract*, not per hook** — `use-pack-token.ts` holds every entrypoint of `pack_token`, one exported hook each, named for the entrypoint (`useCanPurchase` → `can_purchase`). It is the one folder under `hooks/` whose file name is a subject rather than a single hook; the rules are `NEXTJS_DATA_FLOW.md` §0 and `CLAUDE.md` § Contract calls.
+- **A route file is a mount point**: `app/page.tsx` renders `<HomePage />` and nothing more. Markup, state and layout belong to the component.
+- **[diverges] A page is a folder under `components/pages/<page>/`** — the page component plus every component built for that page alone, including the component a `layout.tsx` mounts (`DecksScene`) and the page's own `*-layout.ts` (numbers tuned by eye for one board; the shared *mechanism* belongs to `engine/`). A component leaves the folder only when it is genuinely generic, or when a second page uses it — a page-local component graduates the day a second page needs it, not in anticipation.
+- **[diverges] `engine/` and `solitaire/` are deliberate extra top-level modules**, beside the `lib/` + `hooks/` + `components/` split this section otherwise mandates: each is a cohesive *subsystem*, not a collection of one kind of file, and every page that deals cards wants all of it at once. **A third one needs the same bar** — its own vocabulary, consumed by more than one page — not merely "several related files".
+- **`Header` is mounted once, in `app/layout.tsx`**, inside a `flex min-h-screen flex-col` wrapper — so **every page's `<main>` uses `flex-1`, never `min-h-screen`** (that adds the header's height, and a scrollbar, to every page).
+- **Providers are components**, in `components/providers/`, one per file.
+- **New UI is a component first**; a route only ever grows an import.
+- Hooks live in `client/src/hooks/` — `queries/` and `mutations/` for the data-flow layer, `contracts/` for on-chain calls, the root for chain and UI hooks.
+- **`hooks/contracts/` is one file per *contract*, not per hook** — every entrypoint of `pack_token` is a hook in `use-pack-token.ts`, each named for its entrypoint. Rules: `NEXTJS_DATA_FLOW.md` §0 and `CHAIN.md` §4.
 
 ## Client state (zustand stores)
 
-Client state that outlives a component lives in a **zustand store** in `client/src/stores/`, one file per concern, named `<concern>-store.ts` exporting `use<Concern>Store`. Same layout and conventions as ec-dapp's `src/stores/`. Component-local state stays `useState`; server data is react-query's job (`NEXTJS_DATA_FLOW.md`), never a store.
+Client state outliving a component goes in `client/src/stores/`, one file per concern (`<concern>-store.ts` exporting `use<Concern>Store`). Component-local state stays `useState`; **server data is react-query's job, never a store**.
 
-- **Read and write the store directly** — `useSettingsStore(s => s.tableColor)`, `useSettingsStore(s => s.setTableColor)`. Select the one field you need (a whole-store selector re-renders on every unrelated change). No `useXActions` wrapper hooks ("actions" means server actions here) and no passthrough read hooks that only forward a selector.
-- **Setters live in the store**, beside the state they set, as plain `set(...)` closures. State transitions with logic (cycling through a list, clearing a group of flags) are a named method on the store, not the same expression re-derived at each call site.
-- **The settings store is all persisted.** Every field in `settings-store.ts` is a durable player preference, so it uses `persist` with **no `partialize`** — adding a setting is a field plus a setter, and it survives a reload for free. Per-session UI state (open panels, in-flight flags) does not go there; give it its own, unpersisted store.
-- **Persisted stores use `skipHydration` and rehydrate on mount.** Next.js prerenders with the store defaults, so reading a persisted value during the first client render is a hydration mismatch. `components/providers/SettingsProvider.tsx` calls `useSettingsStore.persist.rehydrate()` in a mount effect — every new persisted store rehydrates in that same place.
-- **A setting that CSS consumes is an attribute on `<html>`, not a class or inline styles.** `SettingsProvider` mirrors `tableColor` onto `data-table`, and `main.css` re-points a single token per value (`html[data-table='red'] { --color-ps-bg: … }`) — the derived palette follows on its own. Components never read the setting to pick a colour.
+- **Read and write the store directly**, one field at a time — a whole-store selector re-renders on every unrelated change. No `useXActions` wrappers ("actions" means server actions here), no passthrough read hooks.
+- **Setters live in the store** beside their state. A transition with logic (cycling a list, clearing a group of flags) is a named method, not an expression re-derived at each call site.
+- **Durable player preferences are all persisted** — `settings-store` uses `persist` with no `partialize`. Per-session UI state gets its own unpersisted store.
+- **`partialize` is for state that would contradict itself, not for trimming.** `solitaire-store` uses it because the board is *derived* from the seed and move list it persists, so storing the board too would let a saved game disagree with its own history.
+- **Persisted stores use `skipHydration` and rehydrate on mount** — reading a persisted value during the first client render is a hydration mismatch. `SettingsProvider` is where every persisted store rehydrates. The cost is one frame of defaults (for `settings-store`, one frame of the default felt); pay it rather than reading during render.
+- **A setting CSS consumes is an attribute on `<html>`**, not a class or inline styles: the provider mirrors it to `data-*`, `main.css` re-points one token per value, and the derived palette follows. Components never read a setting to pick a colour.
 
 ## TypeScript
 
-- Path aliases: `@/*` → `client/src/*`, `@/assets/*` → `client/public/assets/*`. Always import via aliases, never long relative paths.
-- `strict: true`. Don't add `any` where a real type is cheap.
-- Domain types are hand-written, never `any`: card/deck shapes, duel state, chain addresses.
-- **Next.js owns `client/tsconfig.json`** — it rewrites the file during `next build`. Don't hand-format it; it's excluded from Biome.
+- Path aliases only, never long relative paths: `@/*` → `client/src/*`, `@/assets/*` → `client/public/assets/*`, `@root/*` → repo root.
+- `strict: true`. Domain types are hand-written; don't reach for `any` where a real type is cheap.
+- **Next.js owns `client/tsconfig.json`** — it rewrites it on build, and Biome excludes it. Don't hand-format it.
 
 ## Icons
 
-- **`lucide-react` is the icon library.** Whenever a UI element needs an icon, import it from `lucide-react` — no inline SVG paste, no icon fonts, no second icon package.
-- Size and color with Tailwind utilities on the component (`<Swords className="size-5 text-ps-accent" />`), not with the `size`/`color` props — this keeps icons consistent with the rest of the styling rules below.
-- Game-specific art (cards, pistols, characters) is **not** an icon — those are assets under `client/public/assets/`.
+- **`lucide-react` only** — no inline SVG, no icon fonts, no second package.
+- Size and colour with Tailwind utilities, not the `size`/`color` props.
+- Game art (cards, pistols, characters) is **not** an icon — that lives in `client/public/assets/`.
 
 ## Styling (Tailwind)
 
-- **One main CSS file**: `client/src/styles/main.css`, imported by the root layout. It holds the Tailwind import, the `@theme` design tokens, base element styles, and the few necessary custom classes. No other stylesheets — no SCSS, no CSS Modules, no per-component CSS files.
-  - **[diverges] One exception: `client/src/styles/fonts.css`**, `@import`ed at the top of `main.css`. It holds the `@font-face` declarations and nothing else — a hundred lines of generated boilerplate that only changes when a font is added, and that would otherwise bury the tokens. It decides nothing: family names, sizes and colours stay in `@theme`. Do not add a second exception without the same justification.
-- **Style elements directly instead of inventing classes.** Shared element defaults go on element selectors in the main CSS file (`button { … }`, not `.button-class`); one-off styling goes on the component as Tailwind utilities in JSX.
-- **A UI element gets its own class only when it needs more than styling** — behavior targeting, or a layout class reused on plain elements.
-- **`style` prop only when necessary** — dynamic runtime values (computed positions, colors, sizes). Never for static styling.
-- **`cn()` (`@/lib/cn`) for composing conditional styles** (clsx + tailwind-merge). No string concatenation or template literals for class names.
-- **[diverges] Every component takes an optional `className`** — not just `ui/` primitives. Add `className?: string` to the props, merge it **last** through `cn()` onto the root element so the call site always wins, and pass nothing else through. It is the one escape hatch for placement and one-off tweaks, and it costs a line; a component without it forces the caller into a wrapper div.
-- Palette tokens are the `--color-ps-*` set in `@theme`, which generate utilities (`bg-ps-bg`, `text-ps-bold`, `border-ps-line`, `text-ps-accent`). Use the tokens, not raw hex or stock Tailwind colors.
-- **Two type roles, named for the role and not the face.** `--font-title` is the display face — headings and buttons, always with the `small-caps` utility beside it; `--font-mono` is body copy and is the `<body>` default, so nothing needs to ask for it. **No component ever names a font family**; re-facing the game is a one-line edit in `@theme`. (Tailwind's namespace is `--font-*`, which is what generates `font-title` — hence that order, not `--title-font`.)
+- **Tailwind 4, configured in CSS** (`postcss.config.mjs`, and deliberately **no `tailwind.config.*`**).
+- **One stylesheet**, `client/src/styles/main.css`: the Tailwind import, `@theme` tokens, base element styles, and the few irreducible globals. No SCSS, no CSS Modules, no per-component CSS.
+  - **[diverges] One exception: `styles/fonts.css`**, `@font-face` and nothing else — generated boilerplate that decides nothing. A second exception needs the same justification.
+- **Style elements directly instead of inventing classes.** Shared defaults go on element selectors in `main.css`; one-offs go on the component as utilities. An element earns a class only when it needs more than styling (behaviour targeting, or a layout class reused on plain elements).
+- **`style` prop only for dynamic runtime values** — never for static styling.
+- **`cn()` (`@/lib/cn`) composes conditional classes.** No string concatenation, no template literals for class names.
+- **[diverges] Every component takes an optional `className`**, not just `ui/` primitives, merged **last** through `cn()` onto the root element so the call site wins. Without it, callers are forced into wrapper divs.
+- **Tokens decide everything, components decide nothing.** The `--color-ps-*` / `--shadow-*` / `--font-*` sets in `@theme` generate the utilities; reach for `shadow-card`, never a hand-rolled `shadow-[…]`, and **never a literal colour or font family in a component**. The palette has three knobs — `bg` (the felt), `text` and `accent` — with `panel`/`line`/`bold` `color-mix()`ed from them, so re-pointing one knob moves everything derived from it.
+- **Two type roles, named for the role and not the face**: `--font-title` (headings and buttons, always with the `small-caps` utility, which exists because Tailwind ships no `font-variant-caps`) and `--font-mono` (body copy, the `<body>` default). EB Garamond + Courier Prime, self-hosted from `public/fonts/` at `font-display: block`. **No component ever names a font family.**
+- **Property animations are `--animate-*` + `@keyframes` in `@theme`**, not a class.
+- **Base element styles go inside `@layer base`.** Outside a layer they beat every utility by source order, so a `<h3 className="text-ps-accent">` would silently do nothing.
+- **Image optimization is off** (`images: { unoptimized: true }`): this client ships art at the size it is shown and the engine rasterizes cards itself, so keep anything in `public/` near its render size. It does **not** turn off lazy loading, so **nothing drawn over a canvas uses `next/image`** — inside a drei `<Html>` portal the IntersectionObserver can fail to ever fire and the image silently never loads.
+- **An `<img>` positioned over a canvas needs `max-w-none`.** Tailwind's preflight ships `img { max-width: 100% }`, and 100% resolves against the containing block — over a canvas that is an *anchor point*, 0–1px wide. The image loads and paints as an invisible sliver while `size-*` appears to do nothing, so this reads as a positioning bug. Divs are immune.
 
 ```tsx
 // ✅ element styled directly; cn() for conditions; style only for dynamic values
@@ -79,54 +75,49 @@ Client state that outlives a component lives in a **zustand store** in `client/s
 <button className={'button-class ' + (isActive ? 'active' : '')} style={{ padding: 8 }}>
 ```
 
+### The table surface
+
+The felt every page sits on, and **the mechanism for any themed surface**.
+
+- **The felt is switchable through one token.** `--ps-table-*` are the tones; `html[data-table='…']` in `@layer base` re-points `--color-ps-bg`, and because `panel`/`line` are `color-mix()`es declared on the same element they resolve against the override — every panel, border, shadow and stamp moves with the felt, and **nothing else knows a table colour exists**. `SettingsProvider` sets the attribute. A fourth table is a tone plus a two-line block, and an entry in `TABLE_COLORS` (which leads with the default).
+- **The surface is three `pointer-events-none` fixed pseudo-elements**: `html::before` (the stamp bevel) and `body::before` (the logo stamp) at `-z-10`, `body::after` (the vignette) at `z-50`, tuned by `--ps-stamp-*`. Two constraints hold it together — **the felt colour is on `html` only** (a background on `body` paints above body's negative-z children and buries the stamp), and the bevel is a masked element rather than a `drop-shadow` (filters apply *before* masking, i.e. to the flat rectangle).
+- **The stamp is masks, not a tile asset** — CSS tiling has no spacing, so the logo mask is intersected with a `conic-gradient` checkerboard of twice the period to get the brick lattice. The bevel is only the *lip* (the offset lattice with the stamp subtracted); a full offset copy cancels light against dark and reads *brighter* than the felt.
+
 ### Component styling API: props & variants
 
-When the same styling class keeps getting passed to a shared primitive (`client/src/components/ui/`), pull it into the component's **typed API** instead of repeating a class string at every call site. This makes the styling discoverable, type-checked, and previewable in Storybook.
+When a styling class keeps getting passed to a shared primitive (`components/ui/`), pull it into the component's typed API instead of repeating it at every call site.
 
-- **Atomic, single-purpose class → boolean/enum prop.** One CSS concern (`image-rendering: pixelated`, `margin: auto`, `width/height: 100%`) becomes a prop mapping to the equivalent utilities. `<Image pixelated centered fluid />`, not `<Image className="PixelArt Centered FillParent" />`.
-- **Reusable, multi-property layout bundle → `variant`**, defined with **`class-variance-authority` (cva)** inside the component. `<Image variant="card" />`.
-- **cva is the variant mechanism for primitives** — typed variants (`VariantProps<typeof x>`), `defaultVariants`, and compound variants. Always merge its output with the incoming `className` through `cn()` so call sites can still override.
-- **`variant` is the *look*, `size` is the *scale*, and every primitive names them the same way.** `variant` is an emphasis ladder: how loudly the control asks to be pressed, from the one thing on the page the player came to do down to clickable text that is trying not to look like a widget at all. `size` is a small/medium/large scale with the middle rung as the default. Don't invent `type`, `kind`, `color` or `small`/`big` for the same axes on another component, and don't give two primitives different names for the same rung — `Button` is the reference for what they are called, and `CLAUDE.md` lists them.
-- **Always give the axis a `defaultVariants` entry**, so a bare `<Button>Connect</Button>` is the common case and only the exception passes a prop.
-- **A variant earns its name from a real call site**, not from a design system in the abstract. The text-only rung exists because the header's account button is a name rather than a widget; add the next rung the day a screen needs it, and not before.
-- **Interactive feedback is motion, not fading.** Hover swells the control slightly, press snaps it down and it springs back — `hover:scale-105` / `active:scale-95`, with the press at half the hover's duration so it feels instant. Dimming a control on hover reads as *less* available, which is backwards: **`opacity` means disabled**. The `text` variant is the exception on both counts — it cancels the scale (text that resizes under the cursor reads as the widget it is trying not to be) and rides 90% → 100% instead, since it has no box to react.
-- **Gate every interactive state behind `not-disabled:`** (`not-disabled:hover:…`, `not-disabled:active:…`). A disabled control must be completely inert to the pointer; a stray un-gated `hover:border-…` still lights up under the cursor and undoes the `disabled:opacity-50` signal.
-- **Delete the class** from `main.css` once nothing references it. Keep it only when plain elements outside the primitive still use it.
-- Net effect: styling migrates into components' typed APIs, and `main.css` shrinks toward only tokens, base element styles, and irreducible globals.
+- **Atomic, single-purpose class → boolean/enum prop.** `<Image pixelated centered fluid />`.
+- **Reusable multi-property bundle → `variant`**, defined with **cva** inside the component, its output merged with the incoming `className` through `cn()` so call sites can still override.
+- **`variant` is the *look*, `size` is the *scale*, and every primitive names them the same way.** `variant` is an emphasis ladder; `size` is small/medium/large with the middle rung as the default. Never invent `type`/`kind`/`color` or `small`/`big` for the same axes, and never give two primitives different names for the same rung. The rungs are fixed: `variant` = `primary` (default) / `accent` / `secondary` / `ghost` / `text`, `size` = `sm` / `md` (default) / `lg`.
+- **Always give an axis a `defaultVariants` entry**, so the bare component is the common case.
+- **A variant earns its name from a real call site**, not from a design system in the abstract.
+- **Interactive feedback is motion, not fading** — `not-disabled:hover:scale-105` swells, `not-disabled:active:scale-95` snaps down at half the duration. **`opacity` means disabled**, so no variant dims on hover.
+- **Gate every interactive state behind `not-disabled:`.** An un-gated `hover:` still fires on a disabled control and undoes `disabled:opacity-50`. Real bug; don't reintroduce it.
+- **Delete a class from `main.css`** once nothing outside the primitive references it.
 
-```tsx
-// A primitive's variants + prop-driven styling, defined with cva and merged via cn().
-const imageVariants = cva('max-w-full', {
-  variants: {
-    variant: { card: 'mx-auto w-full h-auto max-w-[250px] min-w-[180px]' },
-    pixelated: { true: '[image-rendering:pixelated]' }, // atomic → prop
-    centered: { true: 'mx-auto block' },                // atomic → prop
-  },
-});
-type Props = VariantProps<typeof imageVariants> & { className?: string /* … */ };
-// <img className={cn(imageVariants({ variant, pixelated, centered }), className)} />
-```
+The primitives as they stand:
+
+- **`Button` is the reference** for both axes. `accent` is the one thing on a page the player came to do — **never two on a page**. `secondary` brightens its border to the ink on hover, not to yellow, so the quiet button doesn't shout. `text` has no box.
+- **`Spinner` — `size` only**, at the *icon* sizes the buttons use, because it stands in for a control.
+- **`NotificationBadge` — `size` only**, in badge sizes. It draws finished art as authored and pulses its **saturation** (`--animate-notify`); the pulse is a `filter`, so a `drop-shadow-*` on it silently loses.
 
 ## Storybook
 
-Storybook is the **wallet-free preview surface for `client/src/components/ui/`** — the place to see a primitive's whole variant matrix at once, with no chain, no Controller and no route in the way. `@storybook/nextjs-vite`, config in `client/.storybook/`, run with `pnpm storybook` (`:6006`) or `pnpm dev:all` (dev server + Storybook together).
+The **wallet-free preview surface for `components/ui/`** — a primitive's whole variant matrix with no chain, Controller or route in the way. `@storybook/nextjs-vite`, config in `client/.storybook/`.
 
-- **Every `ui/` primitive has a story next to it** — `components/ui/Button.tsx` → `components/ui/Button.stories.tsx`. Adding a variant to a primitive means adding it to that primitive's story in the same change; a variant with no story is undocumented.
-- **One story shows all the variants together.** The default export is `All`: every variant, size and state rendered on one page, grouped by axis, so the whole matrix is eyeballed in a single glance and against each other. **Don't** split it into `Primary`, `Secondary`, `Large`, `Disabled` — one story per state is noise, and it hides exactly the comparison the story exists to make.
-- **A second story, `Playground`, is the controls-driven single instance** for tweaking props in the panel. Those two are the whole convention; more stories need a reason (a distinct composition, not a distinct prop value).
+- **Every `ui/` primitive has a story beside it.** Adding a variant means extending that story in the same change.
+- **One story shows all variants**: `All` — every variant, size and state on one page, grouped by axis. **Don't** split into `Primary`/`Secondary`/`Large`/`Disabled`; that hides the comparison the story exists to make.
+- **`Playground` is the second story**, a controls-driven single instance. Those two are the whole convention; more needs a distinct composition, not a distinct prop value.
 - **`title` is `'UI/<Component>'`** — the sidebar mirrors the folder.
-- **Declare `variant`/`size` in `argTypes`.** cva's `VariantProps` is a type-level union that react-docgen can't see, so without an explicit `control: 'select'` the Playground silently loses those controls.
-- **Stories decide nothing about styling.** They import `main.css` (via `.storybook/preview.tsx`) and render on the app's real felt, stamp and vignette — a story that hand-rolls a background or a colour is testing the story, not the component. Grouping/labelling scaffolding inside a story uses the same `--color-ps-*` tokens as everything else.
-- **A story is not a test and not a route.** Nothing that needs the Controller, Torii or a connected account belongs here; those components are exercised in the app.
+- **Declare `variant`/`size` in `argTypes`** (`control: 'select'`) — cva's `VariantProps` is type-level, so react-docgen can't see it and the Playground silently loses the controls.
+- **Stories decide nothing about styling**: they render on the app's real surface via `main.css`. A story that hand-rolls a background is testing the story. `preview.tsx` imports `main.css` and nothing else (the surface lives on `<html>`/`<body>`), and `staticDirs: ['../public']` is required for the fonts and art to resolve.
+- **A story is not a test and not a route.** Anything needing the Controller, Torii or an account is exercised in the app.
 
 ## Conventions
 
-- **Prefer native platform resources over wrapper libraries** — `<audio>` over player libs, `matchMedia` over device-detect libs, `JSON.stringify` over prettifier libs, `document.cookie`/`cookies()` over cookie libs.
-- Data fetching & mutations follow **`specs/NEXTJS_DATA_FLOW.md`**: non-chain reads = API query routes (`/api/query/*`) + one react-query hook per query (`client/src/hooks/queries/`); mutations = server actions (`client/src/app/actions/`) + per-action hooks over `useActionMutation` (`client/src/hooks/mutations/`, centralized sonner toasts). No `useEffect` fetching. **Chain hooks (Starknet/Dojo) are used directly** — never wrapped in another `useQuery`/`useMutation` layer.
-- **[diverges] The chain layer is Starknet, not EVM.** ec-dapp's EVM rules (WebThreeContext, wagmi, `bn.js` ban, `EC.log` gating) map onto: read chain state through `@starknet-react/core` hooks (and the Dojo SDK once it lands), used bare — see `NEXTJS_DATA_FLOW.md` §0; keep chain config in `components/providers/StarknetProvider.tsx` and contract addresses in one registry; use native `bigint` for all chain-scale integers (never `bn.js`/`BigNumber`).
-- **Wallet connection is the Cartridge Controller only.** `@cartridge/connector`'s `ControllerConnector` is the single connector, built once at module scope in `components/providers/StarknetProvider.tsx` (it reuses `window.starknet_controller` and warns if constructed twice). Components never touch the connector directly — they go through `useController()` (`hooks/use-controller.ts`).
-- **Storybook is the preview surface for `ui/` primitives** — see the **Storybook** section above. Same setup as ec-dapp (`@storybook/nextjs-vite`), scoped to `components/ui/` for now.
-
-## Shared dependency versions
-
-Every dependency version lives in the `catalog:` block of `pnpm-workspace.yaml`; packages reference it as `"next": "catalog:"`. Bump the catalog, never a package manifest.
+- **Prefer native platform resources over wrapper libraries** — `<audio>` over player libs, `matchMedia` over device-detect libs, `JSON.stringify` over prettifiers, `document.cookie`/`cookies()` over cookie libs.
+- **Data flow follows `NEXTJS_DATA_FLOW.md`**: non-chain reads are API query routes + one react-query hook each; mutations are server actions + per-action hooks over `useActionMutation`. No `useEffect` fetching.
+- **[diverges] The chain layer is Starknet and is used bare** — `@starknet-react/core` hooks directly, never wrapped in another `useQuery`/`useMutation` (`NEXTJS_DATA_FLOW.md` §0). Chain config stays in `StarknetProvider`, addresses in one registry, and every chain-scale integer is a native `bigint` (never `bn.js`/`BigNumber`).
+- **Wallet connection is the Cartridge Controller only.** One `ControllerConnector`, built once at module scope in `StarknetProvider`; components go through `useController()` and never touch the connector.
+- **Shared dependency versions live in `catalog:`** in `pnpm-workspace.yaml`. Bump the catalog, never a package manifest.

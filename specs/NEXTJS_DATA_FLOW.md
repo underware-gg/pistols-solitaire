@@ -12,6 +12,8 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`),
 
 **[diverges]** Upstream carves out wagmi; here the carve-out is the **Starknet/Dojo layer**. Starknet is wired up (`@starknet-react/core` + the Cartridge Controller); the Dojo SDK is not yet.
 
+This section is the *rule*; **[`CHAIN.md`](./CHAIN.md) is the spec for what lives inside the carve-out** — profiles, addresses, providers, contract calls and the SDK. Read it before any chain read or write.
+
 **Chain hooks are used directly, never wrapped.** `@starknet-react/core` runs on TanStack Query internally and the Dojo SDK keeps its own store — do not wrap `useAccount`/`useReadContract`/`useSendTransaction`/Dojo entity subscriptions in another `useQuery`/`useMutation` layer or in the hooks below. Composing several of them into one hook is fine (`hooks/use-controller.ts` does exactly that); adding a cache on top of them is not.
 
 **One shared `QueryClient`** backs both the chain layer and the app's own queries. It is created in `src/components/providers/providers.tsx` and handed to `StarknetConfig`, which mounts the `QueryClientProvider` itself — so there is exactly one provider and one cache.
@@ -19,7 +21,7 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`),
 | file | role |
 | --- | --- |
 | `src/components/providers/providers.tsx` | `Providers`: the shared `QueryClient` + `<Toaster />` |
-| `src/components/providers/StarknetProvider.tsx` | mainnet-only `StarknetConfig` + the module-scope `ControllerConnector` |
+| `src/components/providers/StarknetProvider.tsx` | the profile's `StarknetConfig` + the module-scope `ControllerConnector` |
 | `src/hooks/use-controller.ts` | `useController()`: connect / disconnect / open Controller / username |
 | `src/dojo/contracts.ts` | `getPistolsContract(name)` → address + ABI, from the SDK manifest |
 | `src/dojo/calls.ts` | the approval / VRF calls that ride in front of a system call |
@@ -27,7 +29,7 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`),
 
 The one thing react-query legitimately holds for the chain layer is a **one-shot SDK promise that has no hook** — e.g. `controllerConnector.username()`, keyed `['controller_username', address]`. That is not wrapping a hook, and it keeps `useEffect` out of it.
 
-**Contract calls live in `src/hooks/contracts/<contract>.ts`** and follow the carve-out, not sections 1 and 2 — no API route, no server action. Rules, with the full rationale in `CLAUDE.md` § Contract calls:
+**Contract calls live in `src/hooks/contracts/<contract>.ts`** and follow the carve-out, not sections 1 and 2 — no API route, no server action. Rules, with the full rationale in `CHAIN.md` §4:
 
 - **Reads** are `useReadContract` used bare, through `useContractRead<T>` (which resolves the contract and carries the return type — it adds no cache of its own). ABIs come from the SDK manifest at runtime; never vendor an `as const` copy.
 - **Writes** are `useContractMutation`, which is `account.execute` + `waitForTransaction`, *not* `useSendTransaction` — that hook resolves when the wallet accepts, so it cannot tell a landed transaction from one that reverted. This is a mutation over an SDK promise with no hook, which the carve-out allows; it is not a cache over a chain hook.
