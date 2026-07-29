@@ -44,6 +44,9 @@ import { cn } from '@/lib/cn';
 // Tailwind classes, selectable, crisp at any zoom — that happens to sit over a mesh. Not `transform`:
 // a deck label wants to stay flat and legible, not lie down on the felt with the cards.
 //
+// `notice` is the same mechanism aimed at the deck itself rather than in front of it — a mark the
+// table wants *on* this deck, whose meaning the engine never learns.
+//
 
 /** How far in front of the deck the label sits, in card heights. */
 const LABEL_DROP = 0.66;
@@ -58,6 +61,7 @@ type DeckPointer = {
 export function Deck3D({
   label,
   sublabel,
+  notice,
   cards,
   cardPose,
   back,
@@ -69,8 +73,17 @@ export function Deck3D({
 }: {
   /** The deck's name, or nothing for an unlabelled pile (a solitaire stock needs no caption). */
   label?: string;
-  /** The line under it — a count, "empty", whatever the caller wants to say. */
-  sublabel?: string;
+  /**
+   * The line under it — a count, "empty", a `Spinner` while the count is still unknown, whatever the
+   * caller wants to say. Any node, because "how many cards" is sometimes not yet a number.
+   */
+  sublabel?: ReactNode;
+  /**
+   * A mark drawn **over** the deck rather than under it, for a deck the table wants to point at.
+   * Anything DOM; it is centred on the deck's own anchor and takes no pointer events, so the deck
+   * under it stays one hit target. Goes with the label when the deck is swept off the table.
+   */
+  notice?: ReactNode;
   /** How many cards to draw. **0 draws the empty slot** instead of a stack. */
   cards: number;
   /** The nth card's pose in the deck's own space. The caller owns the stack's shape. */
@@ -117,8 +130,34 @@ export function Deck3D({
           )}
         >
           {label && <div className="text-lg">{label}</div>}
-          {sublabel && <div className="font-mono text-xs opacity-70">{sublabel}</div>}
+          {sublabel && (
+            // `flex` centres a mark as readily as it does a line of type — the sublabel is a slot,
+            // and a spinner standing in for a count has to sit where the count would.
+            <div className="flex justify-center font-mono text-xs opacity-70">{sublabel}</div>
+          )}
         </div>
+      </Html>
+    ) : null;
+
+  //
+  // Its own `<Html>` rather than a line in the caption: the caption hangs in front of the deck, and
+  // this belongs on it. Same anchor as the deck, so it lands on the stack's base or in the empty slot.
+  //
+  // **The wrapper is given a definite 1px box and centres the notice inside it, overflowing.** drei's
+  // `center` is `translate3d(-50%,-50%,0)` on that wrapper, whose width is otherwise `auto` inside a
+  // zero-width host — so the percentages resolve against a *shrink-to-fit* box, i.e. against the
+  // notice's own layout. `size-px` makes it definite: `center` becomes an exact half-pixel and the
+  // anchor is a point, which is what it always meant.
+  //
+  // **A notice containing an `<img>` must carry `max-w-none`** (`ui/NotificationBadge` does).
+  // Tailwind's preflight ships `img { max-width: 100% }` and 100% is *this* box — so an image inside
+  // it is clamped to one pixel, or to nothing at all against the auto-width version. That is a real
+  // bug this cost hours: the art loads, paints, and is a sliver you cannot see.
+  //
+  const mark =
+    visible && notice ? (
+      <Html center className="pointer-events-none flex size-px items-center justify-center">
+        {notice}
       </Html>
     ) : null;
 
@@ -133,6 +172,7 @@ export function Deck3D({
       <group position={pose.position} rotation={pose.rotation} scale={pose.scale} {...pointer}>
         <CardSlot3D aspect={aspect} />
         {caption}
+        {mark}
       </group>
     );
   }
@@ -147,6 +187,7 @@ export function Deck3D({
       pointer={pointer}
     >
       {caption}
+      {mark}
     </DeckStack>
   );
 }

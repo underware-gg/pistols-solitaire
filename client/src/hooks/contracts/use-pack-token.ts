@@ -32,8 +32,14 @@ const packTypeEnum = (packType?: constants.PackType) =>
 /**
  * `can_claim_starter_pack(recipient) -> bool` — is this account still owed its free starter pack?
  * Defaults to the connected account, and stays disabled until there is one.
+ *
+ * `enabled` is for a caller with a cheaper question to ask first: `useStarterPackOffer` only spends
+ * this call on a player who holds no duelists, and only once per address per session.
  */
-export function useCanClaimStarterPack(recipient?: BigNumberish) {
+export function useCanClaimStarterPack(
+  recipient?: BigNumberish,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { address } = useController();
   const account = recipient ?? address ?? 0n;
 
@@ -41,7 +47,7 @@ export function useCanClaimStarterPack(recipient?: BigNumberish) {
     contract: CONTRACT,
     functionName: 'can_claim_starter_pack',
     args: [bigintToAddress(account)],
-    enabled: isPositiveBigint(account),
+    enabled: enabled && isPositiveBigint(account),
   });
 
   return { ...query, canClaimStarterPack: query.data };

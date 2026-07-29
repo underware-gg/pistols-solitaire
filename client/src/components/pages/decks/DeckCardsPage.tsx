@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDecksView } from '@/components/pages/decks/DecksScene';
+import { StarterPackClaim } from '@/components/pages/decks/StarterPack';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 
@@ -20,9 +21,13 @@ import { cn } from '@/lib/cn';
 
 export function DeckCardsPage({ className }: { className?: string }) {
   const router = useRouter();
-  const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useDecksView();
+  const { deck, page, pages, turnPage, hand, zoomed, stepZoom, starterPack } = useDecksView();
 
   if (!deck) return null;
+
+  // The free pack is claimed on the page of the deck it lands in — the deck whose mark on the felt is
+  // what brought the player here. Everywhere else the offer is simply not this page's business.
+  const claim = starterPack?.slug === deck.slug ? starterPack : undefined;
 
   // Where the card in hand sits among the cards on the felt — and so which way there is left to go.
   const at = zoomed ? hand.indexOf(zoomed) : -1;
@@ -47,6 +52,18 @@ export function DeckCardsPage({ className }: { className?: string }) {
           </p>
         </div>
       </div>
+
+      {/*
+        The claim, in the middle of the table: the deck is parked off to the side and this deck is
+        empty until it lands, so the centre of the felt is exactly the empty space it is about to
+        fill. It leaves as soon as the transaction does (the offer goes with it), and the pack that
+        replaces it arrives on its own through Torii.
+      */}
+      {claim && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <StarterPackClaim offer={claim} />
+        </div>
+      )}
 
       {/*
         Flanking the card in hand: one card goes down as the next comes up, and never off the felt —

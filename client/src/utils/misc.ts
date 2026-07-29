@@ -11,8 +11,23 @@ export function camelCase(value: string): string {
     .join('');
 }
 
-// `some_user name-99` → `SomeUserName99`. Same splitting as `camelCase`, first word capitalized too.
+// `one two some_user name-99` → `One Two Some_User Name-99`.
+//
+// **Capitalizes in place; it does not re-spell.** Every separator survives and nothing is
+// lowercased — a word simply gets its first letter raised, wherever a word starts (the string, or
+// anything that is not a letter or a digit). Unlike `camelCase` this joins nothing together, which is
+// the point: its one call site is a player's Controller username (`ControllerButton`), and a name is
+// displayed, not renamed — `some_user` reading as `SomeUser` is a different handle, and `McDonald`
+// must not come back as `Mcdonald`.
+//
+// A word that starts with a digit has no letter to raise, so `name-99` keeps its `-99`.
+//
+// The classes are Unicode-aware (`\p{L}`, `\p{N}`, `/u`) and that is not decoration: with ASCII
+// ranges, `ó` counts as a separator, so `ólaf` came back as `óLaf` — the accent uncapitalized and the
+// letter *after* it raised instead. A name is the last thing to mangle.
 export function pascalCase(value: string): string {
-  const camel = camelCase(value);
-  return camel.charAt(0).toUpperCase() + camel.slice(1);
+  return value.replace(
+    /(^|[^\p{L}\p{N}])(\p{Ll})/gu,
+    (_, start, letter) => start + letter.toUpperCase(),
+  );
 }

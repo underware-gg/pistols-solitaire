@@ -14,9 +14,11 @@ import {
 } from 'react';
 import { CardTable, type TableDeck } from '@/components/pages/decks/CardTable';
 import { SOLITAIRE_DECK } from '@/components/pages/decks/solitaire-deck';
+import { StarterPackMark } from '@/components/pages/decks/StarterPack';
 import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/decks/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
+import { type StarterPackOffer, useStarterPackOffer } from '@/hooks/use-starter-pack';
 import { useSettingsStore } from '@/stores/settings-store';
 
 //
@@ -54,6 +56,11 @@ type DecksView = {
   deck?: TableDeck;
   /** True while balances are still arriving, so a count of 0 is not yet the truth. */
   isLoading: boolean;
+  /**
+   * The free starter pack while the player is still owed one, or nothing at all. Asked once, here,
+   * and served to both pages: the table marks the deck it lands in, and that deck's page claims it.
+   */
+  starterPack?: StarterPackOffer;
   /** Zero-based index of the dealt page, and how many pages the open deck has (1 when closed). */
   page: number;
   pages: number;
@@ -94,6 +101,8 @@ export function DecksScene({ children }: { children: ReactNode }) {
   const slug = segments[0] === DECK_SEGMENT ? (segments[1] ?? null) : null;
   const { isLoading, balances } = useTokenBalances();
   const gameFilter = useSettingsStore(s => s.gameFilter);
+  // Asked once for the whole table — the hook's own note says why it has a single call site.
+  const starterPack = useStarterPackOffer();
 
   const [pageIndex, setPageIndex] = useState(0);
   const [zoomed, setZoomed] = useState<string | null>(null);
@@ -107,10 +116,6 @@ export function DecksScene({ children }: { children: ReactNode }) {
   const columns = useGridColumns(table);
 
   //
-  // Nothing is on the felt until the hand is known. While the Controller is still reconnecting there
-  // is no player to have a collection, and dealing the decks anyway would mean drawing eight empty
-  // slots — the table's way of saying "you own none of these" — at someone who owns hundreds.
-  //
   // Which collections are on the felt at all — the player's `gameFilter`, except that the deck the
   // URL names always stays. A link into another game's deck is a legitimate way onto this table, and
   // filtering it away would leave `DeckCardsPage` titling an empty felt.
@@ -122,23 +127,34 @@ export function DecksScene({ children }: { children: ReactNode }) {
     [gameFilter, slug],
   );
 
+  //
+  // **The table is laid out from the first frame, counted or not.** Every collection is on the felt
+  // as its own deck whichever it is; a collection the account holds none of *is* an empty slot, so
+  // the layout the player sees while the Controller reconnects is the layout they end up with — the
+  // decks are already in their places and only the captions change under them. What an uncounted deck
+  // must not do is claim a number: `loading` puts a spinner where the count goes and keeps the deck
+  // inert until Torii answers, so an empty slot never has to mean both "you own none of these" and
+  // "nobody has said yet".
+  //
   const decks = useMemo<TableDeck[]>(
     () => [
-      ...(isLoading
-        ? []
-        : tokens.map(token => ({
-            address: token.address,
-            game: token.game,
-            slug: token.slug,
-            name: token.name,
-            cardIds: balances.erc721[token.address] ?? [],
-          }))),
+      ...tokens.map(token => ({
+        address: token.address,
+        game: token.game,
+        slug: token.slug,
+        name: token.name,
+        cardIds: balances.erc721[token.address] ?? [],
+        loading: isLoading,
+        // The one deck with something waiting in it gets the mark — and, being empty, the click
+        // that goes with it (`CardTable`).
+        notice: token.slug === starterPack?.slug ? <StarterPackMark /> : undefined,
+      })),
       // And the house's own deck, last on the felt. It is not a collection and not the account's, so
-      // neither the game filter nor the wait above touches it: it is there from the first frame,
-      // which is what makes `/deck/solitaire` a link that works with no wallet connected at all.
+      // neither the game filter nor the count above touches it: it is there from the first frame with
+      // its real count, which is what makes `/deck/solitaire` a link that works with no wallet at all.
       SOLITAIRE_DECK,
     ],
-    [balances, isLoading, tokens],
+    [balances, isLoading, tokens, starterPack?.slug],
   );
 
   //
@@ -212,6 +228,7 @@ export function DecksScene({ children }: { children: ReactNode }) {
       decks,
       deck,
       isLoading,
+      starterPack,
       page,
       pages,
       turnPage: delta => {
@@ -222,7 +239,7 @@ export function DecksScene({ children }: { children: ReactNode }) {
       zoomed,
       stepZoom,
     }),
-    [decks, deck, isLoading, page, pages, hand, zoomed, stepZoom],
+    [decks, deck, isLoading, starterPack, page, pages, hand, zoomed, stepZoom],
   );
 
   return (

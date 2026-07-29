@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { LogOut, User, Wallet } from 'lucide-react';
+import { Gift, LogOut, User, Wallet } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 
@@ -10,7 +10,7 @@ const meta: Meta<typeof Button> = {
   component: Button,
   args: { children: 'BUTTON' },
   argTypes: {
-    variant: { control: 'select', options: ['primary', 'secondary', 'ghost', 'text'] },
+    variant: { control: 'select', options: ['primary', 'accent', 'secondary', 'ghost', 'text'] },
     size: { control: 'select', options: ['sm', 'md', 'lg'] },
     disabled: { control: 'boolean' },
   },
@@ -29,8 +29,9 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // Every variant and size on one page — easier to eyeball against the felt than one story
-// per state. The header is the reference for three of the four: `primary` is Connect,
-// `ghost` the icon-only menu control, `text` the connected account.
+// per state. The header is the reference for three of the five: `primary` is Connect,
+// `ghost` the icon-only menu control, `text` the connected account; `accent` is the free
+// starter pack on `/deck/packs`.
 export const All: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
@@ -38,6 +39,10 @@ export const All: Story = {
         <Button variant="primary">
           <Wallet className="size-4" />
           Connect
+        </Button>
+        <Button variant="accent">
+          <Gift className="size-4" />
+          Claim Starter Pack
         </Button>
         <Button variant="secondary">
           <User className="size-4" />
@@ -55,6 +60,9 @@ export const All: Story = {
       </Group>
       <Group label="Disabled">
         <Button disabled>Connecting…</Button>
+        <Button variant="accent" disabled>
+          Claiming…
+        </Button>
         <Button variant="secondary" disabled>
           Disabled
         </Button>

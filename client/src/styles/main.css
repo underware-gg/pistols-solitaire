@@ -61,6 +61,24 @@
   --ps-stamp-bevel: 2px;
   --ps-stamp-bevel-color: gray;
   --ps-stamp-bevel-opacity: 0.05;
+
+  /* The notification badge's heartbeat (`ui/NotificationBadge`): its art flushing vivid and
+   * settling back to how it was authored. `saturate()` and nothing else — the badge draws
+   * finished art, so a hue or a fill would repaint a picture that already chose its colours,
+   * and `opacity` is the one signal `ui/` reserves for "disabled" (and leaves the mark
+   * missing half the time besides). This is `filter`, so anything wanting a `drop-shadow`
+   * on a badge has to come through here: the two are one property and the animation wins. */
+  --animate-notify: notify 1.8s ease-in-out infinite;
+
+  @keyframes notify {
+    0%,
+    100% {
+      filter: saturate(1);
+    }
+    50% {
+      filter: saturate(2.25);
+    }
+  }
 }
 
 /*

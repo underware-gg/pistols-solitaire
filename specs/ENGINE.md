@@ -218,9 +218,12 @@ They sit nearly coplanar, and self-shadowing at that angle is all acne and no sh
 A collection to pick, or a pile to deal from. **A deck moves as a block:** the *deck* takes the pose and the cards inside are a static local stack, so one damped group serves the whole pile and a deck of nine costs what a deck of one costs.
 
 ```ts
-<Deck3D label sublabel cards cardPose back aspect pose hoverPose visible onSelect />
+<Deck3D label sublabel notice cards cardPose back aspect pose hoverPose visible onSelect />
 ```
 
+- `label`/`sublabel` hang in **front** of the deck — `sublabel` is any node, not just a string, because "how many cards" is sometimes not yet a number (`/decks` puts a `Spinner` there while Torii is still counting); `notice` is any DOM node drawn **over** it, centred on the deck's own anchor and taking no pointer events — a mark the table wants on a deck (`/decks` puts the free starter pack's on the empty Packs deck) whose meaning the engine never learns. All three go when `visible` does.
+  - **The notice's `<Html>` wrapper is given a definite `size-px` box and centres the notice in it, overflowing.** drei's `center` is `translate3d(-50%,-50%,0)` on a wrapper whose width is otherwise `auto` inside a zero-width host, so those percentages resolve against a *shrink-to-fit* box — the notice's own layout. One definite pixel makes `center` an exact half-pixel and the anchor a point, which is what it always meant. The **caption** keeps plain `center` because text always has a box; don't "unify" them.
+  - **A notice containing an `<img>` must carry `max-w-none`.** Tailwind's preflight ships `img { max-width: 100% }`, and 100% is the containing block — the one-pixel anchor above, or **zero** against an auto-width wrapper. The image loads and paints, at a width of 1px or 0px, so the symptom is a mark that is simply not there and a `size-*` that appears to do nothing. `ui/NotificationBadge` carries the class; any other notice with an image in it needs it too. This one cost real hours — a div (the earlier mask-based badge) is immune, which is what made it look like a positioning bug.
 - `cards` is **how many to draw**, the caller's call — a deck reads as a deck at three cards and at nine and never at five hundred. `cards === 0` draws `CardSlot3D` instead.
 - `cardPose(index)` is the stack's shape, in the deck's own space. The caller owns it.
 - **`pose` must have no rotation.** The cards carry their own `FACE_DOWN`, so a pose already turned `FACE_UP` composes the two — −90° then +90° is zero — and **the stack stands bolt upright facing the camera.** This is a real bug that has been hit; both layouts keep a separate rotation-free `deckPose` alongside their face-up `pilePose`.

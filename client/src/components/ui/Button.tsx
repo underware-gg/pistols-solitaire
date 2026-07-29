@@ -19,7 +19,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: 'border-ps-text bg-ps-text text-ps-bg',
-        secondary: 'border-ps-line bg-ps-panel text-ps-text not-disabled:hover:border-ps-accent',
+        // The felt's own accent, filled: for the one thing on a page the player came to do —
+        // a free pack to claim, a hand to play. `primary` is the loudest *ordinary* button;
+        // this is louder still, so a page never has two of them.
+        accent: 'border-ps-accent bg-ps-accent text-ps-bg',
+        // The quiet, panel-coloured sibling. Its hover brightens its own border to the ink rather
+        // than lighting up in the accent — the accent belongs to the two variants that *are* the
+        // accent (`accent`, and `ghost`, whose whole hover state it is), and a quiet button that
+        // shouts on hover competes with them.
+        secondary: 'border-ps-line bg-ps-panel text-ps-text not-disabled:hover:border-ps-text',
         // No chrome at all — for icon-only controls. Its whole hover state is the accent.
         ghost: 'border-transparent bg-transparent text-ps-text not-disabled:hover:text-ps-accent',
         // Not a button at all: clickable text. It sits at 90% and comes up to full

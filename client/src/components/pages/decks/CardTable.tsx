@@ -2,7 +2,7 @@
 
 import { Html } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type * as THREE from 'three';
 import {
   cameraDistance,
@@ -22,6 +22,7 @@ import {
   zoomPose,
 } from '@/components/pages/decks/table-layout';
 import { useContractMeta } from '@/components/providers/ContractsProvider';
+import { Spinner } from '@/components/ui/Spinner';
 import { tokenImageUrl } from '@/dojo/torii';
 import {
   backUrl,
@@ -67,6 +68,24 @@ export type TableDeck = {
   cardIds: string[];
   /** Set only for a deck that is not a collection — see {@link DeckArt}. */
   art?: DeckArt;
+  /**
+   * True while this deck's cards are still being counted, i.e. `cardIds` is empty because nobody has
+   * answered yet rather than because the account holds none. The deck is on the felt either way — an
+   * empty slot is what a collection looks like before and after the answer, so the table is laid out
+   * once and only its captions change — but it says so with a spinner in place of the count, and
+   * stays inert until the count lands.
+   *
+   * **Per deck, not per table**: the house's solitaire deck is not the account's and is known from
+   * the first frame, so it shows its real count while every collection is still waiting.
+   */
+  loading?: boolean;
+  /**
+   * A mark to put over this deck while the decks are laid out for browsing — the free starter pack's
+   * on an empty Packs deck (`StarterPackMark`). It also makes such a deck **worth clicking**: a
+   * collection with no cards is inert, unless the table has something to say about it, in which case
+   * opening it is how the player acts on it.
+   */
+  notice?: ReactNode;
 };
 
 /**
@@ -300,19 +319,39 @@ function Table({
         // all). A deck that is not open opens, and a collection with no cards at all is inert:
         // `Deck3D` takes no handler rather than being told it is disabled.
         //
+        // **Unless it carries a notice**, which is the one thing an empty deck can be worth opening
+        // for — the free starter pack is claimed on the deck's own page, so the mark over the deck
+        // and the deck itself are one target and one gesture.
+        //
+        // A deck still being counted is not inert-because-empty, it is **not yet answered**, so it
+        // takes no click at all: opening it would deal a page of nothing and closing it again is a
+        // gesture the player did not ask for. It becomes clickable the frame its count lands.
         const isOpen = index === selected;
-        const click = isOpen
-          ? remaining > 0
-            ? () => onTurnPage(1)
-            : () => onSelect(null)
-          : remaining > 0
-            ? () => onSelect(index)
-            : undefined;
+        const click = deck.loading
+          ? undefined
+          : isOpen
+            ? remaining > 0
+              ? () => onTurnPage(1)
+              : () => onSelect(null)
+            : remaining > 0 || deck.notice
+              ? () => onSelect(index)
+              : undefined;
         return (
           <Deck3D
             key={deck.address}
             label={deck.name}
-            sublabel={String(deck.cardIds.length || 'empty')}
+            // The count, or the mark that says there isn't one yet. `empty` is the *answer* "none",
+            // which is why it can't also be what a deck shows while the answer is outstanding.
+            sublabel={
+              deck.loading ? (
+                <Spinner size="sm" label={`Counting ${deck.name}`} />
+              ) : (
+                String(deck.cardIds.length || 'empty')
+              )
+            }
+            // Only while browsing: with the deck open the claim is on the page in front of the
+            // player, and the mark would be pointing at something they are already looking at.
+            notice={selected === null ? deck.notice : undefined}
             cards={Math.min(TABLE.deckStack, remaining)}
             cardPose={deckCardPose}
             hoverPose={hoveredDeckPose}
