@@ -56,6 +56,7 @@ export {
   POSE_EULER_ORDER,
 } from '@/engine/card-pose';
 export { cardSlotTexture } from '@/engine/card-slot';
+export { HTML_Z_RANGE } from '@/engine/html-layer';
 export {
   backUrl,
   type Card,

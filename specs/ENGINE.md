@@ -269,6 +269,8 @@ Import from `@/engine` for the common surface; deep-import a module for an inter
 | `<Html transform>` | Renders the div *in* the scene, so it inherits the card's tilt, travel and scale and reads as printed on it. One DOM subtree per instance, **no depth sorting against meshes**. | The one card in the player's hands. Never twenty at once. |
 | Ordinary DOM over the canvas | `pointer-events-none`, each control turning its own back on. | Page chrome: titles, buttons, paging, banners. |
 
+**Every `<Html>` passes `zIndexRange={HTML_Z_RANGE}`** (`engine/html-layer.ts`). drei's default top is `16777271`, and nothing between the canvas and `<body>` opens a stacking context, so a label lands in the *root* stacking order and paints over everything — page chrome, and the Cartridge keychain iframe at `9999`, which showed up as deck labels printed across the wallet modal. The band puts the engine's overlays under the `z-10` chrome, where the felt belongs; drei still depth-sorts within it.
+
 For `<Html transform>`, drei maps 1px to `scale * 10/400` units of its parent's space. Relate its Tailwind pixel sizes to card units through one named constant, and **frame the zoom around the card *and* its caption on both axes** — fitting the card to a fraction of viewport *height* alone overflows a narrow window sideways, and ignoring the caption hangs it off the bottom edge. Both were real bugs.
 
 ---

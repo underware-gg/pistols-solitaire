@@ -31,6 +31,7 @@ import {
   Deck3D,
   DECK_ART_HEIGHT,
   FitCamera,
+  HTML_Z_RANGE,
   MOVE_LAMBDA,
   STANDARD_ASPECT,
   useCardArt,
@@ -411,6 +412,7 @@ function Table({
                   center
                   position={[0, -TABLE.zoomCaptionDrop, 0.02]}
                   scale={CAPTION_SCALE}
+                  zIndexRange={HTML_Z_RANGE}
                 >
                   <div className="whitespace-nowrap rounded-md border border-ps-line bg-ps-panel/90 px-4 py-2">
                     <span className="small-caps font-title text-xl text-ps-text">{dealt.name}</span>

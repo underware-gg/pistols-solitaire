@@ -15,6 +15,7 @@ import {
   cardGeometry,
 } from '@/engine/card-geometry';
 import type { Pose } from '@/engine/card-pose';
+import { HTML_Z_RANGE } from '@/engine/html-layer';
 import { usePoseAnimation } from '@/engine/use-pose-animation';
 import { cn } from '@/lib/cn';
 
@@ -122,7 +123,12 @@ export function Deck3D({
 
   const caption =
     visible && (label || sublabel) ? (
-      <Html center position={[0, 0, CARD_HEIGHT * LABEL_DROP]} className="pointer-events-none">
+      <Html
+        center
+        position={[0, 0, CARD_HEIGHT * LABEL_DROP]}
+        zIndexRange={HTML_Z_RANGE}
+        className="pointer-events-none"
+      >
         <div
           className={cn(
             'small-caps whitespace-nowrap text-center font-title leading-tight transition-colors',
@@ -156,7 +162,11 @@ export function Deck3D({
   //
   const mark =
     visible && notice ? (
-      <Html center className="pointer-events-none flex size-px items-center justify-center">
+      <Html
+        center
+        zIndexRange={HTML_Z_RANGE}
+        className="pointer-events-none flex size-px items-center justify-center"
+      >
         {notice}
       </Html>
     ) : null;

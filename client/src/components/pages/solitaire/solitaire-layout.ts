@@ -228,7 +228,12 @@ const fanOffset = (pile: Pile, index: number): [number, number] => {
       // from the bottom would run a 24-card waste clean off the board; fanning the top few is also what
       // matches the game, where the last cards dealt are the ones on offer.
       //
-      const from = pile.cards.length - BOARD.fanRightCount;
+      // **The fan is anchored at the pile, not at its top card**, which is what the `max(…, 0)` is for:
+      // a waste holding fewer than `fanRightCount` starts its first card on the slot marker, so playing
+      // one leaves the cards under it exactly where they were. Letting `from` go negative instead makes
+      // every remaining card slide a step to the right — a whole waste animating sideways because
+      // something was taken off the end of it.
+      const from = Math.max(pile.cards.length - BOARD.fanRightCount, 0);
       const step = Math.min(Math.max(index - from, 0), BOARD.fanRightCount - 1);
       return [step * WIDTH * BOARD.fanRight, 0];
     }
