@@ -39,7 +39,7 @@ pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. The onl
 - **Shared dep versions live in the `catalog:` block** — packages say `"next": "catalog:"`, so bump the catalog, not the manifests.
 - Root scripts delegate to Turbo; `format` runs Biome over `client`. `dev:all` is `turbo dev storybook`.
 - Turbo buys little with one package; it is there for the `dojo`/`sdk` packages to come.
-- `onlyBuiltDependencies: [sharp]` is kept only so image optimization can be switched back on without a reinstall.
+- **`allowBuilds` answers every dependency that has an install script** — pnpm 11 replaced `onlyBuiltDependencies` with that map, and a package missing from it **fails the install** (`ERR_PNPM_IGNORED_BUILDS`) instead of being skipped quietly, appending itself to this file with a placeholder. So a new one is answered, `true` or `false`, with the reason; only `sharp` is `true`, and only so image optimization can be switched back on without a reinstall.
 
 ## Client (`client/`)
 

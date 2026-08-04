@@ -8,8 +8,13 @@ import {
   useTokenIds,
 } from '@/components/providers/TokensProvider';
 import { MAIN_GAME } from '@/dojo/profiles';
-import { useCanClaimStarterPack, useClaimStarterPack } from '@/hooks/contracts/use-pack-token';
+import {
+  type ClaimStarterPackArgs,
+  useCanClaimStarterPack,
+  useClaimStarterPack,
+} from '@/hooks/contracts/use-pack-token';
 import { useController } from '@/hooks/use-controller';
+import { type MintFlow, type MintToken, useMintFlow } from '@/hooks/use-mint-flow';
 
 //
 // The free starter pack, while the connected player is still owed one.
@@ -35,9 +40,9 @@ import { useController } from '@/hooks/use-controller';
 // revert. The claim's own `invalidateContractReads` is the belt to that brace.
 //
 // **The offer outlives its own transaction, and duelists are what end it.** A receipt is not the
-// thing the player is waiting for — cards on the felt are — and between the two sits the indexer, so
-// the offer stays up in `indexing` until Torii publishes the duelists the claim minted. That makes
-// the completion the same fact as the eligibility, read from the same place: `duelists.length === 0`
+// thing the player is waiting for — cards on the felt are — so the claim is a `useMintFlow`, which
+// holds the offer up in `indexing` until Torii publishes the duelists it minted. That makes the
+// completion the same fact as the eligibility, read from the same place: `duelists.length === 0`
 // opens the offer and closes it. Nothing polls and nothing is invalidated; `TokensProvider`'s
 // subscription delivers the mint and the offer disappears under the cards.
 //
@@ -48,38 +53,30 @@ import { useController } from '@/hooks/use-controller';
 // hook names a single token rather than pointing the player at the Packs deck the pack itself lands
 // in. A claim they cannot see the result of is a claim on the wrong deck.
 //
-const DUELISTS_TOKEN = { game: MAIN_GAME, name: 'Duelists' } as const;
+const DUELISTS_TOKEN: MintToken = { game: MAIN_GAME, name: 'Duelists' };
 
 /** `can_claim_starter_pack` per player address, for the life of the session. See the note above. */
 const answers = new Map<string, boolean>();
 
-/**
- * How far along the claim is. One value rather than a pair of booleans, because they are stages of
- * one thing and no two of them are ever true at once.
- *
- * - `ready` — the player's to take.
- * - `claiming` — in the wallet and on its way to a block.
- * - `indexing` — it landed; waiting for Torii to publish what it minted.
- */
-export type StarterPackPhase = 'ready' | 'claiming' | 'indexing';
+/** Nobody referred anybody, which is every claim this app makes. A constant, as `useMintFlow` asks. */
+const CLAIM: ClaimStarterPackArgs = {};
 
-export type StarterPackOffer = {
+export type StarterPackOffer = MintFlow & {
   /**
    * Slug of the **duelists** deck: where the mark goes, where the claim button lives, and where the
    * cards turn up. One deck for the whole gesture — see the note above.
    */
   slug: string;
-  claim: () => void;
-  phase: StarterPackPhase;
 };
 
 /**
  * The offer, or `undefined` when there is none — not connected, already holds a duelist, or the chain
  * says the pack has been claimed. A truthy result *is* the offer, so a caller never tests a flag.
  *
- * Meant to be called **once**, by `DecksScene`, which serves it to its pages through `useDecksView`:
- * the latch above is per address and the claim is a mutation, so a second call site would ask the
- * same question again and hold its own idea of how far along a claim is.
+ * Meant to be called **once**, by `DecksScene` — which is also the component that survives the
+ * navigation between the two deck routes (`use-mint-flow.ts`). The latch above is per address and the
+ * claim is a mutation, so a second call site would ask the same question again and hold its own idea
+ * of how far along a claim is.
  */
 export function useStarterPackOffer(): StarterPackOffer | undefined {
   const { address, isConnected } = useController();
@@ -89,7 +86,8 @@ export function useStarterPackOffer(): StarterPackOffer | undefined {
   // `isSuccess` is the receipt, and it is read rather than hooked into a callback on purpose: the
   // per-call `onSuccess` is one of the ones react-query skips when a component unmounts mid-flight
   // (`use-contract-mutation.tsx`), and this is exactly the moment that would drop.
-  const { mutate, isPending, isSuccess } = useClaimStarterPack();
+  const claim = useClaimStarterPack();
+  const flow = useMintFlow(claim, DUELISTS_TOKEN, CLAIM);
 
   // Padded lowercase, so the same player is one key however the wallet spelled the address.
   const player = address ? bigintToAddress(address) : undefined;
@@ -108,22 +106,21 @@ export function useStarterPackOffer(): StarterPackOffer | undefined {
   // The claim landed: forget the answer so the read asks again. It settles in one round — the fresh
   // answer is `false`, which latches and disables the read for the rest of the session.
   useEffect(() => {
-    if (isSuccess && player) answers.delete(player);
-  }, [isSuccess, player]);
+    if (claim.isSuccess && player) answers.delete(player);
+  }, [claim.isSuccess, player]);
 
   const owed = player !== undefined && (answers.get(player) ?? canClaimStarterPack) === true;
 
   //
-  // Live while the pack is owed, and **still live through the claim** — `isPending` and `isSuccess`
-  // carry it past the moment the answer above turns `false`, so the button can report where the claim
-  // has got to instead of vanishing at the receipt. `empty` is the one thing that ends it: the
-  // duelists arrive, and with them the cards this was pointing at.
+  // Live while the pack is owed, and **still live through the claim** — the flow's phase carries it
+  // past the moment the answer above turns `false`, so the button can report where the claim has got
+  // to instead of vanishing at the receipt. `empty` is the one thing that ends it: the duelists
+  // arrive, and with them the cards this was pointing at.
   //
-  const available = empty && (owed || isPending || isSuccess);
-  const phase: StarterPackPhase = isSuccess ? 'indexing' : isPending ? 'claiming' : 'ready';
+  const available = empty && (owed || flow.phase !== 'ready');
 
   return useMemo(
-    () => (available && deck ? { slug: deck.slug, claim: () => mutate({}), phase } : undefined),
-    [available, deck, phase, mutate],
+    () => (available && deck ? { slug: deck.slug, ...flow } : undefined),
+    [available, deck, flow],
   );
 }

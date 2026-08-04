@@ -89,6 +89,7 @@ hooks/contracts/
 - **Toasts: one per call, `loading` → `success`/`error` at the same id**, labelled `contract::entrypoint()` with a live `ElapsedTimeBadge` and the tx hash. Two divergences from `useActionMutation`: the lifecycle lives **inside `mutationFn`** (the hash only exists halfway through, and the toast must survive the callbacks react-query skips on unmount), and it **morphs in place** rather than dismiss-then-open (hence `handleApiError`'s optional `toastId`). Success *is* shown here — a transaction with no visible UI change still has to say it landed. Full rules: `NEXTJS_DATA_FLOW.md` §6.
 - **Invalidation is the entrypoint hook's job**, not the component's: only it knows which views its write moved (`onSuccess: () => invalidateContractReads(CONTRACT)`). **`useQueryInvalidate` cannot reach these** — starknet-react keys a read as a single object, so matching a key segment never hits one.
 - **Token balances come from Torii**, not from here. A write mints; `TokensProvider`'s subscription notices. Never poll a balance through a contract hook.
+  - **A write whose result the player is waiting to *see* is a `hooks/use-mint-flow.ts` flow**, not a mutation a component reads `isPending` off: the receipt lands seconds before the indexer does, so the flow adds an `indexing` phase that ends when the minted token turns up in the hand. Rules and traps: `DECKS.md` §7.
 
 ## 5. `@underware/pistols-sdk`
 

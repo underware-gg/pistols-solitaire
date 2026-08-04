@@ -13,13 +13,15 @@ import {
   useState,
 } from 'react';
 import { CardTable, type TableDeck } from '@/components/pages/decks/CardTable';
+import { PackPurchaseButton, PackPurchaseMark } from '@/components/pages/decks/PackPurchase';
 import { SOLITAIRE_DECK } from '@/components/pages/decks/solitaire-deck';
-import { StarterPackMark } from '@/components/pages/decks/StarterPack';
+import { StarterPackClaim, StarterPackMark } from '@/components/pages/decks/StarterPack';
 import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/decks/table-layout';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
 import { MAIN_GAME } from '@/dojo/profiles';
-import { type StarterPackOffer, useStarterPackOffer } from '@/hooks/use-starter-pack';
+import { usePackPurchaseOffer } from '@/hooks/use-pack-purchase';
+import { useStarterPackOffer } from '@/hooks/use-starter-pack';
 import { useSettingsStore } from '@/stores/settings-store';
 
 //
@@ -56,12 +58,6 @@ type DecksView = {
   deck?: TableDeck;
   /** True while balances are still arriving, so a count of 0 is not yet the truth. */
   isLoading: boolean;
-  /**
-   * The free starter pack while the player is still owed one, or nothing at all. Asked once, here,
-   * and served to both pages: the table marks the duelists deck, that deck's page claims it, and the
-   * offer stays until the duelists it minted are dealt onto the felt.
-   */
-  starterPack?: StarterPackOffer;
   /** Zero-based index of the dealt page, and how many pages the open deck has (1 when closed). */
   page: number;
   pages: number;
@@ -102,8 +98,17 @@ export function DecksScene({ children }: { children: ReactNode }) {
   const slug = segments[0] === DECK_SEGMENT ? (segments[1] ?? null) : null;
   const { isLoading, balances } = useTokenBalances();
   const gameFilter = useSettingsStore(s => s.gameFilter);
-  // Asked once for the whole table — the hook's own note says why it has a single call site.
+  //
+  // The table's two offers, asked once each for the whole table — each hook's own note says why it has
+  // a single call site, and why that call site has to be this component rather than a page (it is the
+  // one that survives the navigation between the two deck routes, so a transaction survives it too).
+  //
+  // **The free pack first.** A player still owed it cannot purchase at all (the chain says so, and
+  // `usePackPurchaseOffer`'s note says why it is asked here as well), so at most one of these is ever
+  // on the felt.
+  //
   const starterPack = useStarterPackOffer();
+  const packPurchase = usePackPurchaseOffer({ enabled: !starterPack });
 
   const [pageIndex, setPageIndex] = useState(0);
   const [zoomed, setZoomed] = useState<string | null>(null);
@@ -146,17 +151,35 @@ export function DecksScene({ children }: { children: ReactNode }) {
         name: token.name,
         cardIds: balances.erc721[token.address] ?? [],
         loading: isLoading,
-        // The duelists deck, while a free pack is owed, gets the mark — and, being empty, the click
-        // that goes with it (`CardTable`). The offer names the deck, so moving the mark to another
-        // collection is one line in `use-starter-pack.ts` and nothing here.
-        notice: token.slug === starterPack?.slug ? <StarterPackMark /> : undefined,
+        //
+        // An offer's deck carries its mark and its control, and **the offer is what names the deck** —
+        // so moving either to another collection is one line in its hook and nothing here.
+        //
+        // The mark is drawn in the empty slot, so it is for an empty deck only: the duelists' while a
+        // free pack is owed, the `+` on a packs deck the player holds none of. It also gives such a
+        // deck the click that goes with it (`CardTable`). The control is offered whether or not the
+        // deck is empty — a player with packs can still buy another — and `CardTable` is what decides
+        // it is drawn on the open deck alone, i.e. `/deck/<slug>` and not the browsing table.
+        //
+        notice:
+          token.slug === starterPack?.slug ? (
+            <StarterPackMark />
+          ) : token.slug === packPurchase?.slug && packPurchase.empty ? (
+            <PackPurchaseMark />
+          ) : undefined,
+        action:
+          token.slug === starterPack?.slug ? (
+            <StarterPackClaim offer={starterPack} />
+          ) : token.slug === packPurchase?.slug ? (
+            <PackPurchaseButton offer={packPurchase} />
+          ) : undefined,
       })),
       // And the house's own deck, last on the felt. It is not a collection and not the account's, so
       // neither the game filter nor the count above touches it: it is there from the first frame with
       // its real count, which is what makes `/deck/solitaire` a link that works with no wallet at all.
       SOLITAIRE_DECK,
     ],
-    [balances, isLoading, tokens, starterPack?.slug],
+    [balances, isLoading, tokens, starterPack, packPurchase],
   );
 
   //
@@ -230,7 +253,6 @@ export function DecksScene({ children }: { children: ReactNode }) {
       decks,
       deck,
       isLoading,
-      starterPack,
       page,
       pages,
       turnPage: delta => {
@@ -241,7 +263,7 @@ export function DecksScene({ children }: { children: ReactNode }) {
       zoomed,
       stepZoom,
     }),
-    [decks, deck, isLoading, starterPack, page, pages, hand, zoomed, stepZoom],
+    [decks, deck, isLoading, page, pages, hand, zoomed, stepZoom],
   );
 
   return (

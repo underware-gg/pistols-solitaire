@@ -43,16 +43,46 @@ The standard 53 from `public/deck/`, a `TableDeck` like any other whose only dif
 - It is on the table before any wallet is — neither `isLoading` nor the game filter touches the house's deck. Its slug is added to `SLUGS` by hand, and **`contracts.json` must never mint a `solitaire` slug**.
 - Its cards are rasterized at `CARD_ART_HEIGHT` and not pinned; 53 faces plus the pinned backs sit just under `CACHE_LIMIT`, the number to watch if the deck grows.
 
-## 6. The free starter pack
+## 6. Offers on the felt — the free pack, and buying one
 
-A mark on the empty *Duelists* deck, **and the deck is the button** (`hooks/use-starter-pack.ts`, `pages/decks/StarterPack.tsx`). The mark is a `Deck3D` `notice` (a `NotificationBadge`) and `CardTable` gives an otherwise-inert empty deck a click when it carries one, so opening the deck is the whole gesture; the claim is the one `accent` button on that deck's page.
+Two things the table offers the player, and they are the same shape: **a mark in the deck's empty slot, and a button under that deck on the deck's own page** (`Deck3D`'s `notice` and `action` — `ENGINE.md` §4). Neither is page chrome, and that is the point — an offer is *about a deck*, so it hangs off the deck rather than over the middle of the felt.
 
-- **The duelists deck, not the Packs deck, and that is the whole shape of this feature.** The duelists are the eligibility test *and* what the claim produces, so one deck carries the mark, the claim and the arrival — the player is pointed at the felt the cards appear in, and a landed claim navigates nowhere because they are already looking at it. The offer names its own deck (`StarterPackOffer.slug`), so moving the mark to another collection is one line in the hook and nothing in the scene or the page.
-- **The offer outlives its own transaction; duelists end it.** `phase` is `ready` → `claiming` → `indexing`, and `indexing` is a state worth naming: the receipt has landed and the felt is still empty, so a button that went back to `Claim Starter Pack` would invite a second claim and one that merely stopped spinning would look finished with nothing to show. The wait ends when `TokensProvider`'s subscription publishes the mint — the same `duelists.length === 0` that opened the offer closes it, so nothing polls, nothing is invalidated, and the button is replaced by the cards it was promising.
+The two hooks are `hooks/use-starter-pack.ts` and `hooks/use-pack-purchase.ts`; the components are `pages/decks/StarterPack.tsx` and `pages/decks/PackPurchase.tsx`, both over `pages/decks/MintButton.tsx`.
+
+- **The mark is for browsing, the control is for the open deck**, and `CardTable` is the one place that says so (`selected === null` for one, `index === selected` for the other). Between them they are one gesture: the table points at a deck, opening it is how the player acts on the mark — an otherwise-inert empty deck is given a click when it carries a notice, for exactly this reason — and what they came to do is waiting under the deck when they get there. A browsing table stays a table of decks with one mark on it, and no offer is ever drawn twice.
+- **An offer names its own deck** (`slug`), so moving one to another collection is a line in its hook and nothing in the scene, the table or the engine.
+- **The mark is only ever a label, and only on an *empty* deck**: it is drawn in the slot the cards will land in, which is also why a deck the player already has cards in gets the button and no mark. It takes no pointer events, so the deck under it stays one hit target.
+- **`accent` belongs to the free pack.** A page never has two accent buttons (`CODING_STYLE.md`), and while both offers could exist the free one is the louder — which is moot, because the chain never allows both at once (below).
+- **One call site each, `DecksScene`.** A second caller would ask the same questions again and hold its own idea of how far along a transaction is — and it has to be *that* component, because it is mounted by the layout: a page unmounts on the navigation between `/decks` and `/deck/<slug>` and would take a pending transaction's state with it.
+
+### The free starter pack
+
+A `NotificationBadge` on the empty **Duelists** deck, and the claim under that deck on `/deck/duelists`.
+
+- **The duelists deck, not the Packs deck, and that is the whole shape of this feature.** The duelists are the eligibility test *and* what the claim produces (`claim_starter_pack` opens the pack in the same call), so one deck carries the mark, the claim and the arrival — the player is pointed at the felt the cards appear in, and a landed claim navigates nowhere because they are already looking at it.
+- **The offer outlives its own transaction; duelists end it.** The wait is a `useMintFlow` (§7) and the same `duelists.length === 0` that opened the offer closes it, so nothing polls and nothing is invalidated: the button is replaced by the cards it was promising.
 - **Cheapest question first, and the chain is asked once per address per session.** Torii already knows whether the player holds a duelist, so `can_claim_starter_pack` is only spent on an empty hand — then latched in a module `Map`, because `useReadContract` takes no `staleTime` and the answer cannot change on its own. A landed claim *drops* the latched answer rather than assuming it, so the read asks once more and settles on `false`; that is what makes the latch self-healing for a player who leaves mid-claim.
-- **One call site, `DecksScene`**, serving both pages through `useDecksView().starterPack` — a second caller would ask again and hold its own idea of how far along a claim is.
 
-## 7. Zoom
+### Buying a pack
+
+A `+` in a circle on an empty **Packs** deck, and `purchase_random` under that deck on `/deck/packs` — approve LORDS, request VRF and mint, all in one transaction (`CHAIN.md` §4).
+
+- **One purchase, not a shop.** `purchase_random` takes no arguments: it rolls one of the available 5x duelist packs and charges the cheapest of them, so there is nothing to choose and the offer is a price and a button. The button names the price, because it spends real LORDS. A shop with a pack type to pick would be `usePurchase`, and it is a different feature.
+- **One read answers the whole question.** `can_purchase(account, type)` is `pack_type.can_purchase() && !can_claim_starter_pack(account)` — the same pair the contract's `_purchase` asserts on — so it covers both "packs are on sale" and "**this player has taken their free one first**". That is why the free pack and the purchase are never both on the felt. It says nothing about the LORDS balance: an account that cannot pay is still offered the purchase and finds out from the revert.
+- **`DecksScene` holds the offer back while the free pack is live** (`enabled: !starterPack`) rather than trusting that read alone: the claim invalidates every pack-token read the moment it lands, so `can_purchase` turns `true` while the claimed duelists are still being indexed, and the table would grow a Buy button under a deck in the middle of a claim.
+- **The offer survives the purchase**, because a player who bought one pack may buy another — so unlike the claim, what puts the button back to `Buy a Pack` is the flow's own reset when the pack lands.
+- **The `+` is drawn, not art** — an icon and the palette's accent, so it follows the felt; it borrows `NotificationBadge`'s `animate-notify` so both marks on this table pulse alike (a `filter`, so neither can carry a `drop-shadow`).
+
+## 7. A write the player has to *see* land (`hooks/use-mint-flow.ts`)
+
+Both offers above spend a transaction and then wait for a token, so that wait is one hook. **A receipt is not what the player asked for**: between it and the cards sits the indexer, so `phase` is `ready` → `sending` → `indexing`, and `indexing` is the state worth naming — a button that went back to `Buy a Pack` at the receipt would invite a second purchase, and one that merely stopped spinning would look finished with nothing to show.
+
+- **What ends the wait is the hand growing, not a poll.** `TokensProvider` is already subscribed to every balance, so all the flow keeps is the count the player held when the write went out.
+- **That baseline is taken at the click, not at the receipt.** With a slow wallet and a fast indexer the mint can be published *before* the receipt, and a baseline read then already includes it — an offer stuck on `indexing` for good.
+- **Then it resets**, which is what returns the phase to `ready`; whether that is visible is the offer's business, since its own eligibility may be gone (the starter pack's is).
+- **Call it where it survives a navigation** — the mutation's state is React state. `DecksScene`, never a page.
+
+## 8. Zoom
 
 - **← / → step the zoom along the dealt page** (`stepZoom`), bounded by the page rather than wrapping or paging, and the keys are taken only while a card is zoomed.
 - **The zoom dimmer is a plane in the scene**, not a div over the canvas: it has to sit *between* the zoomed card and the table. It stays mounted with a damped opacity and takes handlers only while active — R3F leaves handler-less objects out of hit testing, so a faded-out plane can't swallow hovers.

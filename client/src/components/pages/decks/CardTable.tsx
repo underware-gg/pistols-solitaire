@@ -82,11 +82,18 @@ export type TableDeck = {
   loading?: boolean;
   /**
    * A mark to put over this deck while the decks are laid out for browsing — the free starter pack's
-   * on an empty Packs deck (`StarterPackMark`). It also makes such a deck **worth clicking**: a
-   * collection with no cards is inert, unless the table has something to say about it, in which case
-   * opening it is how the player acts on it.
+   * on the empty Duelists deck (`StarterPackMark`), the `+` on an empty Packs deck. It also makes such
+   * a deck **worth clicking**: a collection with no cards is inert, unless the table has something to
+   * say about it, in which case opening it is how the player acts on it.
    */
   notice?: ReactNode;
+  /**
+   * A control to hang under this deck — the claim on the deck a free pack lands in, the purchase on
+   * the packs deck. **Drawn only while this deck is the open one**, which is the other half of
+   * `notice`: the mark invites the player in from the browsing table and the control is what is
+   * waiting under the deck when they arrive.
+   */
+  action?: ReactNode;
 };
 
 /**
@@ -350,9 +357,13 @@ function Table({
                 String(deck.cardIds.length || 'empty')
               )
             }
-            // Only while browsing: with the deck open the claim is on the page in front of the
-            // player, and the mark would be pointing at something they are already looking at.
+            // **The mark is for browsing, the control is for the open deck**, and between them that
+            // is the whole gesture: the table points at a deck, opening it is how the player acts on
+            // the mark, and what they came to do is waiting under the deck when they get there. Which
+            // is also why neither is ever drawn twice — a browsing table full of decks stays a table
+            // of decks, with one mark on it.
             notice={selected === null ? deck.notice : undefined}
+            action={index === selected ? deck.action : undefined}
             cards={Math.min(TABLE.deckStack, remaining)}
             cardPose={deckCardPose}
             hoverPose={hoveredDeckPose}

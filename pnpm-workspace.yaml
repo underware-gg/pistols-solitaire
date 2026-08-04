@@ -2,9 +2,29 @@ packages:
   - "client"
   # - "torii"
 
-# next.js image optimization
-onlyBuiltDependencies:
-  - sharp
+# Which dependencies may run install scripts. pnpm 11 replaced the `onlyBuiltDependencies` list
+# with this map, and an unlisted package that *has* a script is "unreviewed" — it fails the install
+# with ERR_PNPM_IGNORED_BUILDS rather than being skipped quietly. So every one of them is answered
+# here, and a new one has to be answered rather than ignored.
+#
+# Everything set to false already ships the binary it would build, as a platform package pnpm has
+# installed and the library resolves at require time — so the script is either a no-op or not ours.
+allowBuilds:
+  # next.js image optimization: `install/check.js` finds the prebuilt @img/sharp-* and only compiles
+  # from source if none matches. Kept true so image optimization can be switched back on without a
+  # reinstall (client/next.config.ts).
+  sharp: true
+  # `install.js` only rewrites its own CLI shim over the @esbuild/* platform binary, and the shim
+  # runs that binary regardless — so vite and storybook (which use the Node API) are unaffected, and
+  # so is bundling a scratch entry by hand (`specs/ENGINE.md` §7): esbuild is nobody's direct
+  # dependency here, so there is no `.bin/esbuild` to link either way — reach for `pnpm dlx esbuild`.
+  esbuild: false
+  # An optional native accelerator for cbor-x (via the Dojo/Torii client), which falls back to JS.
+  cbor-extract: false
+  # `postinstall` prints a donation banner.
+  es5-ext: false
+  # `postinstall` phones home for a version check.
+  "@reown/appkit": false
 
 catalog:
   #--------------------------------

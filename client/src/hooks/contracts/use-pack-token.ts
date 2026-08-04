@@ -85,8 +85,15 @@ export function useClaimStarterPack() {
  * things: **the starter pack has to be out of the way first** (a brand new account gets `false` here
  * and `true` from `useCanClaimStarterPack`), and the type has to be one that is on sale at all. It
  * says nothing about the LORDS balance — an account that cannot pay still gets `true` and reverts.
+ *
+ * `enabled` is for a caller that already knows the answer is no use to it — `usePackPurchaseOffer`
+ * drops the question entirely while the free pack is still on the table.
  */
-export function useCanPurchase(packType?: constants.PackType, recipient?: BigNumberish) {
+export function useCanPurchase(
+  packType?: constants.PackType,
+  recipient?: BigNumberish,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { address } = useController();
   const account = recipient ?? address ?? 0n;
   const packTypeArg = packTypeEnum(packType);
@@ -95,7 +102,7 @@ export function useCanPurchase(packType?: constants.PackType, recipient?: BigNum
     contract: CONTRACT,
     functionName: 'can_purchase',
     args: [bigintToAddress(account), packTypeArg],
-    enabled: isPositiveBigint(account) && Boolean(packTypeArg),
+    enabled: enabled && isPositiveBigint(account) && Boolean(packTypeArg),
   });
 
   return { ...query, canPurchase: query.data };
@@ -109,7 +116,11 @@ export function useCanPurchase(packType?: constants.PackType, recipient?: BigNum
  * still passed because the entrypoint takes it. For display: `usePurchase` asks again at click time
  * rather than reading it from here, so an approval can never be built off a stale block.
  */
-export function useCalcMintFee(packType?: constants.PackType, recipient?: BigNumberish) {
+export function useCalcMintFee(
+  packType?: constants.PackType,
+  recipient?: BigNumberish,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { address } = useController();
   const account = recipient ?? address ?? 0n;
   const packTypeArg = packTypeEnum(packType);
@@ -118,7 +129,7 @@ export function useCalcMintFee(packType?: constants.PackType, recipient?: BigNum
     contract: CONTRACT,
     functionName: 'calc_mint_fee',
     args: [bigintToAddress(account), packTypeArg],
-    enabled: isPositiveBigint(account) && Boolean(packTypeArg),
+    enabled: enabled && isPositiveBigint(account) && Boolean(packTypeArg),
   });
 
   return { ...query, fee: query.data };
@@ -150,13 +161,26 @@ export function usePurchase() {
 }
 
 /**
+ * The pack type `purchase_random` is **priced and gated by**, and the one thing a caller has to know
+ * about an entrypoint that takes no arguments:
+ *
+ * - the **price** is `min(calc_mint_fee(…))` over the contract's available list, which is
+ *   `GenesisDuelists5x` (50 LORDS on mainnet) and `PiratesDuelists5x` (100) — so this is the charge,
+ *   and `usePurchaseRandom` approves exactly it;
+ * - the **eligibility** is `_purchase`'s own two asserts, `pack_type.can_purchase()` and
+ *   `!can_claim_starter_pack(recipient)`, which is `can_purchase(recipient, this)` exactly — so
+ *   `useCanPurchase` on it is the gate, and a player still owed the free pack gets `false` here and
+ *   would get `CLAIM_FIRST` from the chain.
+ *
+ * Both hold only while Genesis is the cheaper of the two; re-check them if the available list changes.
+ */
+export const PURCHASE_RANDOM_PACK_TYPE = 'GenesisDuelists5x' as constants.PackType;
+
+/**
  * `purchase_random()` — buys one of the 5x duelist packs at random.
  *
- * **The price is the cheapest of the packs it might give you**, not the one it picks: the contract
- * takes `min(calc_mint_fee(…))` over its available list before it rolls. That list is
- * `GenesisDuelists5x` (50 LORDS on mainnet) and `PiratesDuelists5x` (100), so approving the Genesis
- * fee is exactly the charge rather than a guess — but it is only right while Genesis is the cheaper
- * of the two, so re-check that if the available list changes.
+ * **The price is the cheapest of the packs it might give you**, not the one it picks — see
+ * {@link PURCHASE_RANDOM_PACK_TYPE}, which is what the approval in front of it is built from.
  *
  * **Not in the published SDK manifest** (1.3.2), only in the newer pistols checkout — live on chain,
  * no ABI entry here. It takes no arguments, which is what makes that harmless: with no `args` the
@@ -172,7 +196,7 @@ export function usePurchaseRandom() {
     before: async (_variables, { account }) => {
       const fee = await callPistolsContract<bigint>(account, CONTRACT, 'calc_mint_fee', [
         account.address,
-        makeCustomEnum('GenesisDuelists5x') as CairoCustomEnum,
+        packTypeEnum(PURCHASE_RANDOM_PACK_TYPE) as CairoCustomEnum,
       ]);
       return [approveLordsCall(fee), vrfRequestCall(CONTRACT, account.address)];
     },

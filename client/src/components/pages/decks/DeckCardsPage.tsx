@@ -3,7 +3,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDecksView } from '@/components/pages/decks/DecksScene';
-import { StarterPackClaim } from '@/components/pages/decks/StarterPack';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 
@@ -18,16 +17,16 @@ import { cn } from '@/lib/cn';
 // scene — so the browser's Back button and the button below do exactly the same thing, and so does
 // Escape (handled in the scene, since it is global).
 //
+// **The table's offers are not here**: a claim or a purchase belongs to a *deck*, so it is drawn under
+// that deck by the scene (`Deck3D`'s `action`) and follows it into and out of this view. This page's
+// chrome is only what is true of every deck — its name, its pages, and the way back.
+//
 
 export function DeckCardsPage({ className }: { className?: string }) {
   const router = useRouter();
-  const { deck, page, pages, turnPage, hand, zoomed, stepZoom, starterPack } = useDecksView();
+  const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useDecksView();
 
   if (!deck) return null;
-
-  // The free pack is claimed on the page of the deck its duelists land in — the deck whose mark on the
-  // felt is what brought the player here. Everywhere else the offer is not this page's business.
-  const claim = starterPack?.slug === deck.slug ? starterPack : undefined;
 
   // Where the card in hand sits among the cards on the felt — and so which way there is left to go.
   const at = zoomed ? hand.indexOf(zoomed) : -1;
@@ -52,20 +51,6 @@ export function DeckCardsPage({ className }: { className?: string }) {
           </p>
         </div>
       </div>
-
-      {/*
-        The claim, in the middle of the table: the deck is parked off to the side and this deck is
-        empty until the cards land, so the centre of the felt is exactly the space it is about to
-        fill. **It outlives its own transaction** — through `Claiming…` and then `Indexing…` — and goes
-        when the duelists arrive through Torii's subscription, which is also what deals them onto the
-        felt underneath it. So the button is replaced by the thing it was promising, in one step, with
-        nothing to navigate.
-      */}
-      {claim && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <StarterPackClaim offer={claim} />
-        </div>
-      )}
 
       {/*
         Flanking the card in hand: one card goes down as the next comes up, and never off the felt —

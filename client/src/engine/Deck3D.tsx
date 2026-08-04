@@ -46,11 +46,24 @@ import { cn } from '@/lib/cn';
 // a deck label wants to stay flat and legible, not lie down on the felt with the cards.
 //
 // `notice` is the same mechanism aimed at the deck itself rather than in front of it — a mark the
-// table wants *on* this deck, whose meaning the engine never learns.
+// table wants *on* this deck, whose meaning the engine never learns. `action` is the third of them and
+// the only one that is a *control*: a button the table hangs below the caption, which is what lets an
+// offer about one deck stay attached to that deck instead of floating over the middle of the felt.
 //
 
 /** How far in front of the deck the label sits, in card heights. */
 const LABEL_DROP = 0.66;
+/**
+ * How far in front of the deck the action hangs, in card heights — clear of the caption, which is two
+ * lines centred on `LABEL_DROP`. The action hangs *downward* from its anchor rather than being centred
+ * on it, so this is the gap above it and not its middle.
+ *
+ * What there is to spend is whatever felt the consuming layout leaves in front of its nearest deck —
+ * `/decks` reserves ~1.3 card heights (`table-layout.ts`'s `fitHalfExtents`), and measured against a
+ * real camera that leaves a `md` button ~26px clear of the window at the tightest deck count and
+ * viewport. A table with less room in front of its decks cannot hang a control off them.
+ */
+const ACTION_DROP = 0.84;
 
 /** The deck's hit handlers, shared by whichever of the two groups is on the table. */
 type DeckPointer = {
@@ -63,6 +76,7 @@ export function Deck3D({
   label,
   sublabel,
   notice,
+  action,
   cards,
   cardPose,
   back,
@@ -85,6 +99,16 @@ export function Deck3D({
    * under it stays one hit target. Goes with the label when the deck is swept off the table.
    */
   notice?: ReactNode;
+  /**
+   * A control drawn **under** the deck's caption, for something the table is offering about this deck
+   * in particular. Anything DOM, and unlike {@link notice} it is meant to be clicked: the layer it
+   * sits in is `pointer-events-none`, so each control turns its own back on — the same contract the
+   * page chrome over the canvas keeps.
+   *
+   * It travels and disappears with the deck, which is the whole point of putting it here rather than
+   * in the page's own chrome. Goes with the label when the deck is swept off the table.
+   */
+  action?: ReactNode;
   /** How many cards to draw. **0 draws the empty slot** instead of a stack. */
   cards: number;
   /** The nth card's pose in the deck's own space. The caller owns the stack's shape. */
@@ -172,6 +196,26 @@ export function Deck3D({
     ) : null;
 
   //
+  // The action, below the caption. **`w-max` with a 1px height is what hangs it downward from its
+  // anchor**: drei's `center` is `translate3d(-50%,-50%,0)`, so a definite max-content width centres it
+  // horizontally on the deck (the thing to line up with) while half a pixel of height leaves its top
+  // edge on the anchor — which is what makes `ACTION_DROP` the gap above the control rather than a
+  // guess at its middle. No flex box here for the same reason `notice` needs one: nothing has to be
+  // centred *inside* it, so nothing can be shrunk to a pixel by it either.
+  //
+  const control =
+    visible && action ? (
+      <Html
+        center
+        position={[0, 0, CARD_HEIGHT * ACTION_DROP]}
+        zIndexRange={HTML_Z_RANGE}
+        className="pointer-events-none h-px w-max"
+      >
+        {action}
+      </Html>
+    ) : null;
+
+  //
   // Nothing left in the pile: the felt's own marking, placed and left alone. Hover still lights the
   // label — that is colour, not movement — but the slot itself does not budge. A swept deck leaves
   // no marking behind: the deck is off the table, and so is the space its cards go back to.
@@ -183,6 +227,7 @@ export function Deck3D({
         <CardSlot3D aspect={aspect} />
         {caption}
         {mark}
+        {control}
       </group>
     );
   }
@@ -198,6 +243,7 @@ export function Deck3D({
     >
       {caption}
       {mark}
+      {control}
     </DeckStack>
   );
 }
