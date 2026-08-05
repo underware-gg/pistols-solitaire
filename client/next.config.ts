@@ -32,6 +32,25 @@ const nextConfig: NextConfig = {
   //
   images: { unoptimized: true },
 
+  experimental: {
+    //
+    // **Off, or the dev server pegs a core forever.** Turbopack's dev cache is an LSM store under
+    // `<distDir>/dev/cache/turbopack/`, and it is written on every compile but never pruned across
+    // sessions. Past a few hundred segment files its background compaction stops converging: the
+    // server then burns 80-100% CPU *while idle, serving nothing*, and the starved event loop drops
+    // the HMR heartbeat — which is what the browser answers with a full page reload, over and over.
+    //
+    // Measured on this repo, same commit, same machine, no requests in flight: 1.0 GB / 1919
+    // segments → 97% idle CPU and 2.8 GB RSS; a wiped cache → 0.4%. It is the cache, not our code.
+    //
+    // What it costs is a cold compile after each restart (~4s for the heaviest route here, and only
+    // the routes actually visited), which is cheap next to a core spinning all day. Re-enable it if
+    // upstream fixes compaction — and if you do, delete `.next`/`.next-claude` on any restart that
+    // feels slow, because the bad state is *persisted* and outlives the process.
+    //
+    turbopackFileSystemCacheForDev: false,
+  },
+
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
 };
 
