@@ -12,7 +12,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { CardTable, type TableDeck } from '@/components/pages/decks/CardTable';
+import {
+  CardTable,
+  type HandCard,
+  handKey,
+  type TableDeck,
+} from '@/components/pages/decks/CardTable';
+import { PackOpenButton } from '@/components/pages/decks/PackOpen';
 import { PackPurchaseButton, PackPurchaseMark } from '@/components/pages/decks/PackPurchase';
 import { SOLITAIRE_DECK } from '@/components/pages/decks/solitaire-deck';
 import { StarterPackClaim, StarterPackMark } from '@/components/pages/decks/StarterPack';
@@ -20,6 +26,7 @@ import { gridColumnsFor, gridPageSize, TABLE } from '@/components/pages/decks/ta
 import { useTokenBalances } from '@/components/providers/TokensProvider';
 import { PROFILE } from '@/dojo/config';
 import { MAIN_GAME } from '@/dojo/profiles';
+import { usePackOpenOffer } from '@/hooks/use-pack-open';
 import { usePackPurchaseOffer } from '@/hooks/use-pack-purchase';
 import { useStarterPackOffer } from '@/hooks/use-starter-pack';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -62,9 +69,13 @@ type DecksView = {
   page: number;
   pages: number;
   turnPage: (delta: number) => void;
-  /** The card ids dealt on the felt right now, in table order — what the zoom steps through. */
-  hand: string[];
-  /** Card id of the one held up to the camera, if any. */
+  /**
+   * The cards dealt on the felt right now, in table order — what the zoom steps through. The open
+   * deck's page, then any cards it is revealing beside them, which is why a card is named by its
+   * collection as well as its id (`handKey`).
+   */
+  hand: HandCard[];
+  /** {@link handKey} of the one held up to the camera, if any. */
   zoomed: string | null;
   /**
    * Move the zoom along the dealt page by a signed number of cards. **Bounded by the page**: the
@@ -109,6 +120,12 @@ export function DecksScene({ children }: { children: ReactNode }) {
   //
   const starterPack = useStarterPackOffer();
   const packPurchase = usePackPurchaseOffer({ enabled: !starterPack });
+  //
+  // And the third, which is not a deck's offer but a card's: a button on every pack, and the duelists
+  // that come out of one. It is told which deck is open because its reveal belongs to a visit to the
+  // packs deck rather than to the session.
+  //
+  const packOpen = usePackOpenOffer(slug);
 
   const [pageIndex, setPageIndex] = useState(0);
   const [zoomed, setZoomed] = useState<string | null>(null);
@@ -173,13 +190,27 @@ export function DecksScene({ children }: { children: ReactNode }) {
           ) : token.slug === packPurchase?.slug ? (
             <PackPurchaseButton offer={packPurchase} />
           ) : undefined,
+        //
+        // The pack open, which is the same idea one level down: an offer about a *card*, so the deck
+        // is handed a control to put on each of its own (`CardTable`'s `cardAction`) and the cards it
+        // reveals to lay out beside them. Both are the packs deck's, because that is where a pack is
+        // and where what came out of it should turn up.
+        //
+        cardAction:
+          token.slug === packOpen?.slug
+            ? (packId: string) => <PackOpenButton offer={packOpen} packId={packId} />
+            : undefined,
+        reveal:
+          token.slug === packOpen?.slug && packOpen.revealed.length > 0
+            ? { address: packOpen.duelists, cardIds: packOpen.revealed }
+            : undefined,
       })),
       // And the house's own deck, last on the felt. It is not a collection and not the account's, so
       // neither the game filter nor the count above touches it: it is there from the first frame with
       // its real count, which is what makes `/deck/solitaire` a link that works with no wallet at all.
       SOLITAIRE_DECK,
     ],
-    [balances, isLoading, tokens, starterPack, packPurchase],
+    [balances, isLoading, tokens, starterPack, packPurchase, packOpen],
   );
 
   //
@@ -190,27 +221,37 @@ export function DecksScene({ children }: { children: ReactNode }) {
   const index = slug ? decks.findIndex(deck => deck.slug === slug) : -1;
   const selected = index >= 0 ? index : null;
   const deck = selected === null ? undefined : decks[selected];
-  const pages = deck ? Math.max(1, Math.ceil(deck.cardIds.length / gridPageSize(columns))) : 1;
+  // A reveal beside the deck takes its slots out of the same grid, so it takes them out of the page
+  // size too — the same call `CardTable` makes, from the same place.
+  const size = gridPageSize(columns, deck?.reveal?.cardIds.length ?? 0);
+  const pages = deck ? Math.max(1, Math.ceil(deck.cardIds.length / size)) : 1;
 
   // Narrowing the window deals fewer cards at a time, so the page being read can fall off the end of
   // a deck that has just grown shorter — clamped here rather than in `setPage`, since the count can
   // change with no one having turned a page.
   const page = Math.min(pageIndex, pages - 1);
 
-  // The cards actually on the felt: the same slice the table deals, and the range the zoom steps in.
-  const hand = useMemo(() => {
-    const size = gridPageSize(columns);
-    return deck ? deck.cardIds.slice(page * size, (page + 1) * size) : [];
-  }, [deck, page, columns]);
+  // The cards actually on the felt: the same slice the table deals plus the same reveal beside it,
+  // in the same order — this is the range the zoom steps along, so it has to be the grid exactly.
+  const hand = useMemo<HandCard[]>(() => {
+    if (!deck) return [];
+    const dealt = deck.cardIds
+      .slice(page * size, (page + 1) * size)
+      .map(cardId => ({ address: deck.address, cardId }));
+    const reveal = deck.reveal;
+    return reveal
+      ? [...dealt, ...reveal.cardIds.map(cardId => ({ address: reveal.address, cardId }))]
+      : dealt;
+  }, [deck, page, size]);
 
   /** The zoom, moved along the dealt page and stopped at its ends. */
   const stepZoom = useCallback(
     (delta: number) =>
       setZoomed(current => {
-        const at = current ? hand.indexOf(current) : -1;
+        const at = current ? hand.findIndex(card => handKey(card) === current) : -1;
         if (at < 0) return current;
         const next = at + delta;
-        return next >= 0 && next < hand.length ? hand[next] : current;
+        return next >= 0 && next < hand.length ? handKey(hand[next]) : current;
       }),
     [hand],
   );

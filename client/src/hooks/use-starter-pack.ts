@@ -1,7 +1,7 @@
 'use client';
 
 import { bigintToAddress } from '@underware/pistols-sdk/utils';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   useTokenBalances,
   useTokenContract,
@@ -14,7 +14,7 @@ import {
   useClaimStarterPack,
 } from '@/hooks/contracts/use-pack-token';
 import { useController } from '@/hooks/use-controller';
-import { type MintFlow, type MintToken, useMintFlow } from '@/hooks/use-mint-flow';
+import { type MintControl, type MintToken, useMintFlow } from '@/hooks/use-mint-flow';
 
 //
 // The free starter pack, while the connected player is still owed one.
@@ -58,10 +58,10 @@ const DUELISTS_TOKEN: MintToken = { game: MAIN_GAME, name: 'Duelists' };
 /** `can_claim_starter_pack` per player address, for the life of the session. See the note above. */
 const answers = new Map<string, boolean>();
 
-/** Nobody referred anybody, which is every claim this app makes. A constant, as `useMintFlow` asks. */
+/** Nobody referred anybody, which is every claim this app makes. This offer is one specific mint. */
 const CLAIM: ClaimStarterPackArgs = {};
 
-export type StarterPackOffer = MintFlow & {
+export type StarterPackOffer = MintControl & {
   /**
    * Slug of the **duelists** deck: where the mark goes, where the claim button lives, and where the
    * cards turn up. One deck for the whole gesture — see the note above.
@@ -87,7 +87,10 @@ export function useStarterPackOffer(): StarterPackOffer | undefined {
   // per-call `onSuccess` is one of the ones react-query skips when a component unmounts mid-flight
   // (`use-contract-mutation.tsx`), and this is exactly the moment that would drop.
   const claim = useClaimStarterPack();
-  const flow = useMintFlow(claim, DUELISTS_TOKEN, CLAIM);
+  const flow = useMintFlow(claim, DUELISTS_TOKEN);
+  // The claim is always the same claim, so its variables are bound here and the button is handed a
+  // `MintControl` — nothing about a referrer belongs on the felt.
+  const send = useCallback(() => flow.send(CLAIM), [flow.send]);
 
   // Padded lowercase, so the same player is one key however the wallet spelled the address.
   const player = address ? bigintToAddress(address) : undefined;
@@ -120,7 +123,7 @@ export function useStarterPackOffer(): StarterPackOffer | undefined {
   const available = empty && (owed || flow.phase !== 'ready');
 
   return useMemo(
-    () => (available && deck ? { slug: deck.slug, ...flow } : undefined),
-    [available, deck, flow],
+    () => (available && deck ? { slug: deck.slug, phase: flow.phase, send } : undefined),
+    [available, deck, flow.phase, send],
   );
 }

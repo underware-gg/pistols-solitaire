@@ -122,6 +122,31 @@ export const TABLE = {
   zoomBackdropGap: 0.45,
 
   //--------------------------------
+  // a control under a dealt card
+  //
+  // A grid whose cards carry one (`TableDeck.cardAction`) is **spaced out to make room for it**:
+  // `gridGapZ` on its own leaves a twenty-fifth of a card of felt between two rows, so a control hung
+  // below a card would land on the card in front of it. So the two numbers below are added to the row
+  // pitch, and to the height the camera frames, for that grid alone — a deck with nothing to click
+  // under its cards keeps its own spacing and its own card size. The pull-back is the cost, and it is
+  // the honest one: the felt has to hold more.
+  //
+  /** How far below a dealt card's bottom edge its control hangs, in card heights. */
+  cardActionDrop: 0.05,
+  /**
+   * How much room to reserve for the control itself, in card heights.
+   *
+   * A DOM box, so **measured, not guessed**, the same as `zoomCaption*` — and the harder of the two,
+   * because a button is a fixed number of *pixels* while a card shrinks with the window, so the
+   * binding case is the smallest one. Measured against a real camera with a `sm` `MintButton` at its
+   * true 26px: this leaves the control clear of the row in front of it by 6px at 900×600, 12px at
+   * 1280×700, 23px at 1440×900 and 52px at 2560×1440, on cards 59–142px wide. **Raising it shrinks
+   * the cards** (the camera backs off, which is most of why the clearance improves), so re-measure
+   * rather than reason if the control's size changes — the two pull against each other.
+   */
+  cardActionHeight: 0.36,
+
+  //--------------------------------
   // the lighting
   //
   // Positions are directions as much as places — a directional light shines from where it is put
@@ -163,11 +188,43 @@ export const TABLE = {
 /** How far the swept decks slide into the distance. They pass under the dealt grid on the way. */
 const SWEEP_Z = -14;
 
-/** Cards dealt per page — the slice of a deck that is on the table at once. */
-export const gridPageSize = (columns: number): number => columns * TABLE.gridRows;
+/**
+ * Cards dealt per page — the slice of a deck that is on the table at once.
+ *
+ * **The grid holds what it holds, whoever the cards belong to**: a deck showing a `reveal` beside its
+ * page (`CardTable`) is dealing into the slots that are left, so the reveal takes room from the deal
+ * rather than spilling into a row the camera does not frame. Clamped at one, so a reveal bigger than
+ * the whole grid still leaves the deck a card on the felt.
+ */
+export const gridPageSize = (columns: number, reveal = 0): number =>
+  Math.max(1, columns * TABLE.gridRows - reveal);
 
-const gridGap = () => ({ x: CARD_WIDTH * TABLE.gridGapX, z: CARD_HEIGHT * TABLE.gridGapZ });
+/**
+ * Felt a control under a card needs below it: the gap plus the control's own box. Nothing but this
+ * distinguishes a grid that carries controls from one that does not — it is added to the row pitch so
+ * the control lands on felt, and to the framed height so the front row's is in shot.
+ */
+const cardActionReach = () => CARD_HEIGHT * (TABLE.cardActionDrop + TABLE.cardActionHeight);
+
+/**
+ * Card-to-card spacing in the dealt grid. `actions` is whether its cards carry a control under them
+ * (`TableDeck.cardAction`), which buys each row that much more felt behind it.
+ */
+const gridGap = (actions = false) => ({
+  x: CARD_WIDTH * TABLE.gridGapX,
+  z: CARD_HEIGHT * TABLE.gridGapZ + (actions ? cardActionReach() : 0),
+});
 const deckGap = () => ({ x: CARD_WIDTH * TABLE.deckGapX, z: CARD_HEIGHT * TABLE.deckGapZ });
+
+/**
+ * Where a control under a dealt card hangs, in the **card's own space** — `CardTable` positions the
+ * `<Html>` from this, so the anchor and the room `gridGap` leaves for it are one number.
+ *
+ * It is the control's *top* edge: `Deck3D`'s trick of a `w-max`, one-pixel box means `center` leaves
+ * the anchor on the top edge rather than in the middle, so this is a distance and not a guess at how
+ * tall a button is.
+ */
+export const cardActionAnchor = (): number => CARD_HEIGHT / 2 + TABLE.cardActionDrop;
 
 /** Where the open deck waits while its cards are dealt: clear of the grid, out to the left. */
 const pileBaseX = (columns: number) => -(((columns - 1) / 2) * gridGap().x + CARD_WIDTH * 1.2);
@@ -286,9 +343,27 @@ export const deckTopPose = (index: number, total: number, stack = TABLE.deckStac
   };
 };
 
-/** A card's slot in the dealt grid, art up, by its index within the page. */
-export const gridPose = (index: number, columns: number): Pose => {
-  const gap = gridGap();
+/**
+ * Top of a deck that has been swept off the table — where a card belonging to *another* collection
+ * comes from and goes back to while this one is open.
+ *
+ * The duelists a pack reveals are dealt onto the packs deck's felt but they are not the packs deck's
+ * cards: their own deck is one of the ones sliding into the distance, so that is both the place they
+ * fly in from and the place they leave to when the next pack is opened. Which is what "off screen"
+ * means here — not a direction picked by eye, but the deck they belong to, wherever it has got to.
+ */
+export const deckSweptTopPose = (index: number, total: number, stack = TABLE.deckStack): Pose => {
+  const pose = deckTopPose(index, total, stack);
+  pose.position[2] += SWEEP_Z;
+  return pose;
+};
+
+/**
+ * A card's slot in the dealt grid, art up, by its index within the page. `actions` spaces the rows
+ * out for the control each card carries under it — see {@link cardActionAnchor}.
+ */
+export const gridPose = (index: number, columns: number, actions = false): Pose => {
+  const gap = gridGap(actions);
   const column = index % columns;
   const row = Math.floor(index / columns);
   return {
@@ -385,10 +460,16 @@ const cameraDepth = (distance: number, point: [number, number, number]) => {
  * position — so both sides are the same exponential and their difference decays from the head start
  * to the gap without ever changing sign. Damp the dimmer faster and it would overtake the card.
  */
-export const zoomBackdropDepth = (active: boolean, distance: number, columns: number): number =>
+export const zoomBackdropDepth = (
+  active: boolean,
+  distance: number,
+  columns: number,
+  actions = false,
+): number =>
   TABLE.zoomBackdropGap +
-  // The back row of the grid: same depth for every card in it, and no dealt card is deeper.
-  (active ? TABLE.zoomDistance : cameraDepth(distance, gridPose(0, columns).position));
+  // The back row of the grid: same depth for every card in it, and no dealt card is deeper. A spaced
+  // grid puts that row further away, so it takes the same flag the poses do.
+  (active ? TABLE.zoomDistance : cameraDepth(distance, gridPose(0, columns, actions).position));
 
 /**
  * The dimmer that sits between a zoomed card and the rest of the table: a plane facing the camera
@@ -427,7 +508,7 @@ export const hoveredDeckPose = (pose: Pose): Pose => ({
 // for a grid that is not dealt: `FitCamera` damps between the two distances, and the pull-back is
 // itself part of opening a deck.
 //
-const fitHalfExtents = (view: TableView, deckCount: number, columns: number) => {
+const fitHalfExtents = (view: TableView, deckCount: number, columns: number, actions = false) => {
   const margin = CARD_WIDTH * TABLE.fitMargin;
   if (view === 'decks') {
     const gap = deckGap();
@@ -439,13 +520,20 @@ const fitHalfExtents = (view: TableView, deckCount: number, columns: number) => 
       height: ((rows - 1) / 2) * gap.z + CARD_HEIGHT * 0.9 + margin,
     };
   }
-  const gap = gridGap();
+  const gap = gridGap(actions);
   const reach = gridReach(columns);
   return {
     // Half the span from the deck's outer edge to the far side of the grid: `gridShiftX` has already
     // centred that span on the table, so the box is symmetric again and the felt splits evenly.
     width: (reach.left + reach.right) / 2 + margin,
-    height: ((TABLE.gridRows - 1) / 2) * gap.z + (CARD_HEIGHT / 2) * TABLE.cardScale + margin,
+    // The front row's own control hangs below the grid, so a spaced grid is that much taller than
+    // its rows. Off by half `cardActionReach` from being symmetric about the table's centre, which is
+    // inside `fitMargin` and the direction that over-reserves — see `camera-fit.ts` on shifting.
+    height:
+      ((TABLE.gridRows - 1) / 2) * gap.z +
+      (CARD_HEIGHT / 2) * TABLE.cardScale +
+      (actions ? cardActionReach() : 0) +
+      margin,
   };
 };
 
@@ -462,6 +550,11 @@ export type TableView = 'decks' | 'grid';
  * card size, and only a window too narrow for `gridColumnsMin` starts costing size.
  *
  * A pure function of the aspect ratio, like everything else here — the caller measures, this decides.
+ *
+ * **Deliberately blind to whether the open deck's cards carry controls.** How many columns to deal is
+ * the *table's* answer to the window's shape and it decides the page size, so letting it change as
+ * one deck is opened would re-page the felt on a navigation. A grid making room for controls pays for
+ * them in camera distance instead, which is the smaller and more local cost.
  */
 export const gridColumnsFor = (aspect: number): number => {
   // Before the first measurement there is no shape to answer for; the widest deal is the safe guess,
@@ -474,10 +567,14 @@ export const gridColumnsFor = (aspect: number): number => {
   return TABLE.gridColumnsMin;
 };
 
-/** How far back the camera has to sit for `view` to fit a viewport of this aspect ratio. */
+/**
+ * How far back the camera has to sit for `view` to fit a viewport of this aspect ratio. `actions` is
+ * whether the dealt grid's cards carry a control under them, which makes it a taller layout.
+ */
 export const cameraDistance = (
   aspect: number,
   view: TableView,
   deckCount: number,
   columns: number,
-): number => fitDistance(fitHalfExtents(view, deckCount, columns), aspect, TABLE.fov);
+  actions = false,
+): number => fitDistance(fitHalfExtents(view, deckCount, columns, actions), aspect, TABLE.fov);

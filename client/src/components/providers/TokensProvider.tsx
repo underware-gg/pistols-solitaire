@@ -174,9 +174,17 @@ export function useCoinBalance(game: string, name: string): bigint {
   return (contract && balances.erc20[contract.address]) ?? 0n;
 }
 
+/**
+ * One array for every "holds none of these", so the answer is **referentially stable** between
+ * balance updates. A fresh `[]` per render would churn every `useCallback`/`useMemo` downstream that
+ * closes over the hand — `use-mint-flow.ts`'s `send` reads it, and a new identity there is a new
+ * offer object on the felt every render.
+ */
+const NO_TOKEN_IDS: string[] = [];
+
 /** ERC-721 token ids the connected account owns of `game`/`name`, ascending. */
 export function useTokenIds(game: string, name: string): string[] {
   const { balances } = useTokenBalances();
   const contract = useTokenContract(game, name);
-  return (contract && balances.erc721[contract.address]) ?? [];
+  return (contract && balances.erc721[contract.address]) ?? NO_TOKEN_IDS;
 }

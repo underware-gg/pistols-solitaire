@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { PROFILE, PROFILE_NAME } from '@/dojo/config';
 import { useGetDuelDeck, useGetDuelProgress } from '@/hooks/contracts/use-game';
 import {
+  useAirdrop,
   useCalcMintFee,
   useCanClaimStarterPack,
   useCanPurchase,
@@ -20,7 +21,7 @@ import {
   usePurchaseRandom,
 } from '@/hooks/contracts/use-pack-token';
 import { useCanClaimRing, useClaimRing } from '@/hooks/contracts/use-ring-token';
-import { useController } from '@/hooks/use-controller';
+import { useController, useControllerLookup } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
 
 //
@@ -157,40 +158,47 @@ function PurchaseControls() {
         </select>
       </label>
 
-      <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-4 text-sm">
-        <dt className="font-mono text-ps-text/60">can_purchase</dt>
-        <dd>{!isConnected ? '—' : isLoadingCanPurchase ? 'reading…' : String(canPurchase)}</dd>
-        <dt className="font-mono text-ps-text/60">calc_mint_fee</dt>
-        <dd>
-          {!isConnected
-            ? '—'
-            : isLoadingFee
-              ? 'reading…'
-              : fee === undefined
-                ? '—'
-                : `${weiToEthString(fee)} LORDS`}
-        </dd>
-      </dl>
+      {/* The two views and the two writes they gate, side by side. `flex-1` on the readouts is what
+          pins the buttons to the right edge — sizing them off the values instead would shift them
+          sideways as `reading…` resolves to a fee. */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <dl className="grid flex-1 grid-cols-[auto_1fr] gap-x-4 text-sm">
+          <dt className="font-mono text-ps-text/60">can_purchase</dt>
+          <dd>{!isConnected ? '—' : isLoadingCanPurchase ? 'reading…' : String(canPurchase)}</dd>
+          <dt className="font-mono text-ps-text/60">calc_mint_fee</dt>
+          <dd>
+            {!isConnected
+              ? '—'
+              : isLoadingFee
+                ? 'reading…'
+                : fee === undefined
+                  ? '—'
+                  : `${weiToEthString(fee)} LORDS`}
+          </dd>
+        </dl>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          onClick={() => purchase({ packType })}
-          disabled={!isConnected || isBusy || canPurchase !== true}
-        >
-          {isPurchasing && <Spinner size="sm" />}
-          purchase
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => purchaseRandom()}
-          disabled={!isConnected || isBusy}
-        >
-          {isPurchasingRandom && <Spinner size="sm" />}
-          purchase_random
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => purchase({ packType })}
+            disabled={!isConnected || isBusy || canPurchase !== true}
+          >
+            {isPurchasing && <Spinner size="sm" />}
+            purchase
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => purchaseRandom()}
+            disabled={!isConnected || isBusy}
+          >
+            {isPurchasingRandom && <Spinner size="sm" />}
+            purchase_random
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <AirdropControls packType={packType} />
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-ps-line border-t pt-4">
         <label className="flex items-center gap-3 text-sm">
           <span className="font-mono text-ps-text/60">pack_id</span>
           <input
@@ -209,6 +217,49 @@ function PurchaseControls() {
           {isOpening && <Spinner size="sm" />}
           open
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// `airdrop` is the one pack call that mints to somebody else, so it needs a recipient the other
+// controls don't: a raw address, or a Controller username that `useControllerLookup` turns into one.
+// The resolved address is shown in full — it is the thing being confirmed before a mint goes out —
+// and the button stays locked until there is one, so a half-typed name can't be sent.
+function AirdropControls({ packType }: { packType: constants.PackType }) {
+  const { isConnected } = useController();
+  const [recipient, setRecipient] = useState('');
+  const { address, isLoading } = useControllerLookup(recipient);
+  const { mutate: airdrop, isPending } = useAirdrop();
+
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-3 text-sm">
+          <span className="font-mono text-ps-text/60">Airdrop To:</span>
+          <input
+            type="text"
+            placeholder="0x… or username"
+            value={recipient}
+            onChange={event => setRecipient(event.target.value)}
+            className="w-72 rounded border border-ps-line bg-ps-bg px-2 py-1 font-mono"
+          />
+        </label>
+        <Button
+          variant="secondary"
+          onClick={() => address && airdrop({ recipient: address, packType })}
+          disabled={!isConnected || isPending || !address}
+        >
+          {isPending && <Spinner size="sm" />}
+          airdrop
+        </Button>
+        <span className="text-ps-text/60 text-xs">admin only</span>
+      </div>
+      {/* A non-breaking space holds the line, so resolving an address doesn't nudge the row below. */}
+      <div className="mt-1 break-all font-mono text-ps-text/60 text-xs">
+        {isLoading
+          ? 'looking up…'
+          : (address ?? (recipient.trim() ? 'not an address or a known username' : ' '))}
       </div>
     </div>
   );

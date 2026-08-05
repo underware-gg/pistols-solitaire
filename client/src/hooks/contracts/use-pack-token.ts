@@ -3,7 +3,7 @@
 import type { constants } from '@underware/pistols-sdk/pistols/gen';
 import { makeCustomEnum } from '@underware/pistols-sdk/starknet';
 import { bigintToAddress, bigintToHex, isPositiveBigint } from '@underware/pistols-sdk/utils';
-import type { BigNumberish, CairoCustomEnum } from 'starknet';
+import { type BigNumberish, type CairoCustomEnum, CairoOption, CairoOptionVariant } from 'starknet';
 import { approveLordsCall, vrfRequestCall } from '@/dojo/calls';
 import { callPistolsContract } from '@/dojo/contracts';
 import { useContractMutation } from '@/hooks/contracts/use-contract-mutation';
@@ -200,6 +200,45 @@ export function usePurchaseRandom() {
       ]);
       return [approveLordsCall(fee), vrfRequestCall(CONTRACT, account.address)];
     },
+    onSuccess: () => invalidateContractReads(CONTRACT),
+  });
+}
+
+export type AirdropArgs = {
+  /** Who gets the pack — anyone, not the caller. */
+  recipient: BigNumberish;
+  packType: constants.PackType;
+  /** How many, default 1. The contract mints them as separate packs. */
+  quantity?: number;
+};
+
+/**
+ * `airdrop(recipient, pack_type, duelist_profile, quantity) -> Span<u128>` — mints a pack to someone
+ * for free.
+ *
+ * **Admin only**, and there is no view to ask first: the contract calls `admin.am_i_admin(caller)` and
+ * any other account reverts with `CALLER_NOT_ADMIN`. Nothing is charged, so no LORDS approval.
+ *
+ * **`duelist_profile` is always `None` here, and that is exactly what makes the VRF request
+ * necessary** — the contract draws randomness only when no profile is named, and mints that one
+ * duelist off a zero seed when one is. So every airdrop we send is a random one and always needs the
+ * request in front of it. (The SDK's own call layer decides this from the *pack type* instead, which
+ * is not the same condition — don't copy that.) A profile picker would mean making the request
+ * conditional, not adding a second hook.
+ */
+export function useAirdrop() {
+  const invalidateContractReads = useInvalidateContractReads();
+
+  return useContractMutation<AirdropArgs>({
+    contract: CONTRACT,
+    entrypoint: 'airdrop',
+    args: ({ recipient, packType, quantity = 1 }) => [
+      bigintToAddress(recipient),
+      packTypeEnum(packType) as CairoCustomEnum,
+      new CairoOption<CairoCustomEnum>(CairoOptionVariant.None),
+      quantity,
+    ],
+    before: (_variables, { account }) => [vrfRequestCall(CONTRACT, account.address)],
     onSuccess: () => invalidateContractReads(CONTRACT),
   });
 }

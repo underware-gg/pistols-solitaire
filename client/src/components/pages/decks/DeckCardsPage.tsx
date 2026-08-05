@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { handKey } from '@/components/pages/decks/CardTable';
 import { useDecksView } from '@/components/pages/decks/DecksScene';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
@@ -29,7 +30,8 @@ export function DeckCardsPage({ className }: { className?: string }) {
   if (!deck) return null;
 
   // Where the card in hand sits among the cards on the felt — and so which way there is left to go.
-  const at = zoomed ? hand.indexOf(zoomed) : -1;
+  // By `handKey`, not by token id: the felt can hold two collections at once and their ids collide.
+  const at = zoomed ? hand.findIndex(card => handKey(card) === zoomed) : -1;
 
   return (
     <div className={cn('flex flex-1 flex-col', className)}>

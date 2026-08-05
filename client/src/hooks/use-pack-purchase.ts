@@ -14,7 +14,7 @@ import {
   usePurchaseRandom,
 } from '@/hooks/contracts/use-pack-token';
 import { useController } from '@/hooks/use-controller';
-import { type MintFlow, type MintToken, useMintFlow } from '@/hooks/use-mint-flow';
+import { type MintControl, type MintToken, useMintFlow } from '@/hooks/use-mint-flow';
 
 //
 // Buying a pack: `purchase_random`, on the deck the pack lands in.
@@ -43,7 +43,7 @@ import { type MintFlow, type MintToken, useMintFlow } from '@/hooks/use-mint-flo
 
 const PACKS_TOKEN: MintToken = { game: MAIN_GAME, name: 'Packs' };
 
-export type PackPurchaseOffer = MintFlow & {
+export type PackPurchaseOffer = MintControl & {
   /** Slug of the **packs** deck: where the button sits, and where the pack arrives. */
   slug: string;
   /** What it will cost, in LORDS wei, once the chain has said. */
@@ -83,8 +83,9 @@ export function usePackPurchaseOffer({
   });
   const { fee } = useCalcMintFee(PURCHASE_RANDOM_PACK_TYPE, undefined, { enabled: asking });
 
+  // `purchase_random` takes no arguments, so the flow's `send` is already a `MintControl`'s.
   const purchase = usePurchaseRandom();
-  const flow = useMintFlow(purchase, PACKS_TOKEN, undefined);
+  const flow = useMintFlow(purchase, PACKS_TOKEN);
 
   // Live while the chain says yes, and **still live through the purchase**: the flow's phase carries
   // it past the receipt, so the button reports the indexing wait instead of going quiet. Nothing ends
@@ -94,7 +95,9 @@ export function usePackPurchaseOffer({
 
   return useMemo(
     () =>
-      available && deck ? { slug: deck.slug, fee, empty: packs.length === 0, ...flow } : undefined,
-    [available, deck, fee, packs.length, flow],
+      available && deck
+        ? { slug: deck.slug, fee, empty: packs.length === 0, phase: flow.phase, send: flow.send }
+        : undefined,
+    [available, deck, fee, packs.length, flow.phase, flow.send],
   );
 }

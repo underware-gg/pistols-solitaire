@@ -6,10 +6,12 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type * as THREE from 'three';
 import {
   cameraDistance,
+  cardActionAnchor,
   deckCardPose,
   deckParkedPose,
   deckPose,
   deckSweptPose,
+  deckSweptTopPose,
   deckTopPose,
   gridPageSize,
   gridPose,
@@ -33,6 +35,7 @@ import {
   FitCamera,
   HTML_Z_RANGE,
   MOVE_LAMBDA,
+  type Pose,
   STANDARD_ASPECT,
   useCardArt,
 } from '@/engine';
@@ -94,6 +97,72 @@ export type TableDeck = {
    * waiting under the deck when they arrive.
    */
   action?: ReactNode;
+  /**
+   * A control to draw on **each** of this deck's dealt cards — the Open button on every pack
+   * (`pages/decks/PackOpen.tsx`). The third of the deck's DOM slots and the only one that is about a
+   * card: `action` is one offer about the whole collection, this is the same offer asked of one card
+   * at a time, and only the card can say which.
+   *
+   * Drawn on the felt only. A card held up to the camera is showing its caption instead, and while
+   * *any* card is up they all go — the dimmer is a mesh and these are DOM over the whole canvas, so a
+   * page of buttons would float above a table that is supposed to be under a lid.
+   */
+  cardAction?: (cardId: string) => ReactNode;
+  /**
+   * Cards from **another** collection to deal beside this deck's page — the duelists a pack just
+   * revealed, on the felt next to the packs that are left. Drawn only while this deck is the open one,
+   * and they take their slots from the same grid, so `gridPageSize` deals this deck fewer cards to
+   * make room rather than letting them spill out of the shot.
+   */
+  reveal?: TableReveal;
+};
+
+/**
+ * A handful of cards belonging to a collection other than the open deck, laid on its felt.
+ *
+ * **The collection has to be a deck on this same table**, because that deck is where they come from
+ * and where they go: they fly in from it as it lies swept into the distance, and back to it when the
+ * reveal is over (`deckSweptTopPose`). It is also where their art, their stock and their name are read
+ * from, so a reveal carries none of that itself.
+ */
+export type TableReveal = {
+  /** Torii contract address of that collection — its identity on this table. */
+  address: string;
+  cardIds: string[];
+};
+
+/**
+ * A card on the felt in front of the open deck, from whichever collection — the deck's own page, or a
+ * `reveal` beside it. Two collections in one grid is why the zoom names a card by **both**: token ids
+ * restart at 1 per contract, so pack #1 and duelist #1 would otherwise be the same card.
+ */
+export type HandCard = { address: string; cardId: string };
+
+/** What the zoom calls a card on the felt. Unique across the collections in play; see {@link HandCard}. */
+export const handKey = ({ address, cardId }: HandCard): string => `${address}-${cardId}`;
+
+/**
+ * One card laid out on the felt, with everything about it already resolved from whichever collection
+ * it belongs to: art, stock, back, where it is going and what it says when it is picked up. The
+ * table's card loop reads only this, which is what lets one flat list hold two collections.
+ */
+type FeltCard = HandCard & {
+  /** {@link handKey} — the React key, and what the zoom is held as. */
+  key: string;
+  frontUrl?: string;
+  back?: THREE.Texture;
+  background?: string;
+  aspect?: number;
+  /** Where it lies. The zoom overrides it for the one card in the player's hands. */
+  pose: Pose;
+  initial: Pose;
+  delay: number;
+  /** Its collection's name, printed under it at the camera. */
+  name: string;
+  /** What that caption calls this one — a number for a token, a name for a playing card. */
+  label?: string;
+  /** A control drawn on it while it lies on the felt (`TableDeck.cardAction`). */
+  action?: ReactNode;
 };
 
 /**
@@ -151,10 +220,10 @@ export function CardTable({
   selected: number | null;
   /** Which page of the open deck is dealt. */
   page: number;
-  /** Token id of the card held up in front of the camera, if any. */
+  /** {@link handKey} of the card held up in front of the camera, if any. */
   zoomed: string | null;
   onSelect: (index: number | null) => void;
-  onZoom: (tokenId: string | null) => void;
+  onZoom: (card: string | null) => void;
   /** Pages the open deck, by a signed number of pages — the same call the page chrome makes. */
   onTurnPage: (delta: number) => void;
   className?: string;
@@ -230,6 +299,15 @@ function Table({
   const backFor = (deck: TableDeck) =>
     deck.art ? houseBack : cardBackUrl(deck.game) === CARD_BACK_URL ? homeBack : guestBack;
 
+  const open = selected === null ? undefined : decks[selected];
+  //
+  // Whether the dealt grid has to leave felt under every card for a control. It changes the row
+  // pitch and the height the camera frames, so it is read before either — and off `open` rather than
+  // the lingering `dealt` below, because a closing deck is already being framed as the deck view and
+  // its cards are on their way to a deck rather than to a grid slot.
+  //
+  const actions = Boolean(open?.cardAction);
+
   //
   // Each view is framed on its own, and every pose in front of the camera is derived from where the
   // camera *will be* — so a card zooms to the right place even while the camera is still travelling.
@@ -240,6 +318,7 @@ function Table({
     selected === null ? 'decks' : 'grid',
     decks.length,
     columns,
+    actions,
   );
   const pile = pilePose(columns);
   const zoom = zoomPose(TABLE.fov, distance, aspect);
@@ -249,7 +328,6 @@ function Table({
   // pile instead of blinking out. `dealt` is therefore the deck being *shown*, which lags
   // `selected` on the way down and matches it on the way up.
   //
-  const open = selected === null ? undefined : decks[selected];
   const [dealt, setDealt] = useState<TableDeck>();
   useEffect(() => {
     if (open) {
@@ -260,7 +338,27 @@ function Table({
     return () => clearTimeout(timer);
   }, [open]);
 
-  const size = gridPageSize(columns);
+  //
+  // Cards from another collection, dealt beside the open deck's page — and they linger exactly as the
+  // hand does, so the reveal being over is something they can be seen to leave. What replaces one is
+  // never drawn over it: opening a second pack clears the reveal first, and the seconds the write
+  // takes are far longer than the flight home.
+  //
+  const reveal = open?.reveal;
+  const [showing, setShowing] = useState<TableReveal>();
+  useEffect(() => {
+    if (reveal && reveal.cardIds.length > 0) {
+      setShowing(reveal);
+      return;
+    }
+    const timer = setTimeout(() => setShowing(undefined), RETURN_MS);
+    return () => clearTimeout(timer);
+  }, [reveal]);
+
+  // The reveal takes its slots from the same grid, so the deck deals into what is left. Read off the
+  // live `reveal` rather than `showing`, which is what re-spreads the deck's own cards as the reveal
+  // flies away — and what keeps this the same number `DecksScene` computes for the page and the zoom.
+  const size = gridPageSize(columns, reveal?.cardIds.length ?? 0);
   const hand = dealt ? dealt.cardIds.slice(page * size, (page + 1) * size) : [];
 
   //
@@ -281,8 +379,81 @@ function Table({
   const meta = useContractMeta(dealt?.address);
   const background = meta?.backgroundColor;
 
+  //
+  // The revealed cards' own deck, which is where everything about them comes from: their art, their
+  // stock, the back they are dealt face down on, the name their caption reads — and the place they
+  // travel to and from. It is one of the decks swept into the distance while this one is open, so
+  // that top *is* off screen, and the same expression serves the entrance and the exit because they
+  // are the same place.
+  //
+  const revealIndex = showing ? decks.findIndex(deck => deck.address === showing.address) : -1;
+  const revealDeck = revealIndex < 0 ? undefined : decks[revealIndex];
+  const revealMeta = useContractMeta(showing?.address);
+  const revealHome = revealDeck
+    ? (selected === null ? deckTopPose : deckSweptTopPose)(
+        revealIndex,
+        decks.length,
+        Math.min(TABLE.deckStack, revealDeck.cardIds.length),
+      )
+    : pile;
+
   /** Where the open deck's cards come from, and what to call one: its own art, or Torii's. */
   const art = dealt?.art;
+
+  //
+  // Which card a control on the felt is standing on, so the card under it stays lifted while the
+  // pointer is on the button. Without it the two fight: the cursor crosses the card, the card rises
+  // and takes its button up with it, the button is now under the cursor and the card is not — so it
+  // drops back onto the pointer, and the pair flickers. `Card3D`'s `hovered` exists for exactly this
+  // (hover from the outside), and a `<Html>` is DOM, so `pointerover` is what reports it.
+  //
+  const [actionHover, setActionHover] = useState<string | null>(null);
+
+  //
+  // Everything on the felt in front of the open deck, in **one flat list**: the deck's own dealt page,
+  // then whatever it is revealing beside it. Two sibling maps would look equivalent and are not —
+  // React keys an inner array by its own slot (`ENGINE.md` §6) — and building it here is also what
+  // keeps the card loop below blind to which collection a card came out of.
+  //
+  const felt: FeltCard[] = dealt
+    ? [
+        ...hand.map((cardId, index) => ({
+          key: handKey({ address: dealt.address, cardId }),
+          address: dealt.address,
+          cardId,
+          frontUrl: art ? art.face(cardId) : tokenImageUrl(dealt.address, cardId),
+          back: backFor(dealt),
+          background,
+          aspect: art?.aspect,
+          pose: open ? gridPose(index, columns, actions) : home,
+          initial: pile,
+          delay: open ? DEAL_DELAY + index * DEAL_STAGGER : 0,
+          name: dealt.name,
+          label: art ? art.label(cardId) : `#${BigInt(cardId).toString()}`,
+          // Never on a card at the camera, never while any card is (see `TableDeck.cardAction`), and
+          // never on the cards flying home behind a closing deck — `dealt` outlives `open`.
+          action: zoomed || !open ? undefined : dealt.cardAction?.(cardId),
+        })),
+        ...(showing && revealDeck
+          ? showing.cardIds.map((cardId, index) => ({
+              key: handKey({ address: showing.address, cardId }),
+              address: showing.address,
+              cardId,
+              frontUrl: tokenImageUrl(showing.address, cardId),
+              back: backFor(revealDeck),
+              background: revealMeta?.backgroundColor,
+              // The slots the deal left over, taken up from where its last card lies so a short page
+              // leaves no gap in the middle of the grid.
+              pose: reveal ? gridPose(hand.length + index, columns, actions) : revealHome,
+              initial: revealHome,
+              // Staggered like a deal, because that is what it is: they came out of a pack.
+              delay: index * DEAL_STAGGER,
+              name: revealDeck.name,
+              label: `#${BigInt(cardId).toString()}`,
+            }))
+          : []),
+      ]
+    : [];
 
   return (
     <>
@@ -382,65 +553,95 @@ function Table({
         );
       })}
 
-      {dealt &&
-        hand.map((cardId, index) => {
-          const isZoomed = zoomed === cardId;
-          return (
-            <Card3D
-              key={`${dealt.address}-${cardId}`}
-              frontUrl={art ? art.face(cardId) : tokenImageUrl(dealt.address, cardId)}
-              back={backFor(dealt)}
-              aspect={art?.aspect}
-              background={background}
-              pose={open ? (isZoomed ? zoom : gridPose(index, columns)) : home}
-              initial={pile}
-              delay={open ? DEAL_DELAY + index * DEAL_STAGGER : 0}
+      {felt.map(card => {
+        const isZoomed = zoomed === card.key;
+        return (
+          <Card3D
+            key={card.key}
+            frontUrl={card.frontUrl}
+            back={card.back}
+            aspect={card.aspect}
+            background={card.background}
+            pose={isZoomed ? zoom : card.pose}
+            initial={card.initial}
+            delay={card.delay}
+            //
+            // Dealt face down, turned over as each card's art lands. Torii serves a token image in
+            // its own time (and often needs a second ask — `card-art.ts`), so dealing art up meant
+            // a page of blank cream faces filling in one by one; dealt down, the same wait reads as
+            // a deal and every card turns over onto its own picture.
+            //
+            revealOnLoad
+            inHand={isZoomed}
+            hoverable={!isZoomed}
+            // Lifted by the pointer being on its own control, not only by the pointer being on it.
+            hovered={actionHover === card.key}
+            hoverPose={hoveredCardPose}
+            onClick={() => onZoom(isZoomed ? null : card.key)}
+          >
+            {isZoomed ? (
               //
-              // Dealt face down, turned over as each card's art lands. Torii serves a token image in
-              // its own time (and often needs a second ask — `card-art.ts`), so dealing art up meant
-              // a page of blank cream faces filling in one by one; dealt down, the same wait reads as
-              // a deal and every card turns over onto its own picture.
+              // The other half of "HTML over the cards": `transform` renders this div *in* the
+              // scene, so it inherits the card's tilt, travel and scale and reads as printed on
+              // the card. It is the expensive mode — one DOM subtree per instance, no depth
+              // sorting against meshes — so it is for the one card in the player's hands, while
+              // the twenty on the felt stay pure texture.
               //
-              revealOnLoad
-              inHand={isZoomed}
-              hoverable={!isZoomed}
-              hoverPose={hoveredCardPose}
-              onClick={() => onZoom(isZoomed ? null : cardId)}
-            >
-              {isZoomed && (
+              // How far it hangs is `TABLE.zoomCaptionDrop`, because that is also the number
+              // `zoomPose` frames around — read one, and the caption cannot end up off screen.
+              //
+              <Html
+                transform
+                center
+                position={[0, -TABLE.zoomCaptionDrop, 0.02]}
+                scale={CAPTION_SCALE}
+                zIndexRange={HTML_Z_RANGE}
+              >
+                <div className="whitespace-nowrap rounded-md border border-ps-line bg-ps-panel/90 px-4 py-2">
+                  <span className="small-caps font-title text-xl text-ps-text">{card.name}</span>
+                  {/* A collection numbers its cards; a deck of playing cards names them. */}
+                  <span className="ml-3 font-mono text-lg text-ps-text">{card.label}</span>
+                </div>
+              </Html>
+            ) : (
+              card.action && (
                 //
-                // The other half of "HTML over the cards": `transform` renders this div *in* the
-                // scene, so it inherits the card's tilt, travel and scale and reads as printed on
-                // the card. It is the expensive mode — one DOM subtree per instance, no depth
-                // sorting against meshes — so it is for the one card in the player's hands, while
-                // the twenty on the felt stay pure texture.
+                // The plain `<Html>`, not `transform`: a control has to stay flat, legible and the
+                // size a button is, where the caption above is meant to look printed on the card.
+                // `h-px w-max` is `Deck3D`'s trick for the same job — drei's `center` resolves its
+                // percentages against this box, so a definite max-content width centres the control
+                // on the card and half a pixel of height leaves its top edge on the anchor, which is
+                // what makes `cardActionAnchor` a distance and not a guess at a button's middle.
                 //
-                // How far it hangs is `TABLE.zoomCaptionDrop`, because that is also the number
-                // `zoomPose` frames around — read one, and the caption cannot end up off screen.
+                // It hangs on the felt **below** the card, which is what the row spacing is for: the
+                // control belongs to the card without covering its art, and the same two numbers say
+                // where it goes and how much room the grid left it (`table-layout.ts`).
                 //
                 <Html
-                  transform
                   center
-                  position={[0, -TABLE.zoomCaptionDrop, 0.02]}
-                  scale={CAPTION_SCALE}
+                  position={[0, -cardActionAnchor(), 0.02]}
                   zIndexRange={HTML_Z_RANGE}
+                  className="pointer-events-none h-px w-max"
                 >
-                  <div className="whitespace-nowrap rounded-md border border-ps-line bg-ps-panel/90 px-4 py-2">
-                    <span className="small-caps font-title text-xl text-ps-text">{dealt.name}</span>
-                    {/* A collection numbers its cards; a deck of playing cards names them. */}
-                    <span className="ml-3 font-mono text-lg text-ps-text">
-                      {art ? art.label(cardId) : `#${BigInt(cardId).toString()}`}
-                    </span>
+                  {/* Not a control itself: it reports the pointer reaching the one inside it.
+                      `pointerover` bubbles, so it arrives here whatever this box's own
+                      `pointer-events` say — which is the only reason a wrapper can do this job. */}
+                  <div
+                    onPointerOver={() => setActionHover(card.key)}
+                    onPointerOut={() => setActionHover(null)}
+                  >
+                    {card.action}
                   </div>
                 </Html>
-              )}
-            </Card3D>
-          );
-        })}
+              )
+            )}
+          </Card3D>
+        );
+      })}
 
       <ZoomBackdrop
         active={Boolean(zoomed)}
-        depth={zoomBackdropDepth(Boolean(zoomed), distance, columns)}
+        depth={zoomBackdropDepth(Boolean(zoomed), distance, columns, actions)}
         plane={depth => zoomBackdropPlane(TABLE.fov, distance, aspect, depth)}
         onDismiss={() => onZoom(null)}
       />

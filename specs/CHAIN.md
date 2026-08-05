@@ -62,6 +62,7 @@ Composes bare `@starknet-react/core` hooks and never wraps them in another cache
 
 - **`isConnecting` is ours to detect — starknet-react does not report it.** In the installed version `useAccount().status` is only `connected` | `disconnected` and `isConnecting`/`isReconnecting` are assigned `false` at every site, so a page load reads as *logged out* until the keychain answers and the app would flash Connect at a returning player. The hook asks what `autoConnect`'s own effect asks: is `localStorage.lastUsedConnector` ours, and is the connector `ready()`. The in-flight `undefined` counts as connecting. Consequence: if `ready()` says yes and the connect never lands, it stays connecting.
 - Everything that shows connection state hangs off that flag — `ControllerButton`'s `Spinner` sits in the account's own spot, at the size of the type it replaces so the header doesn't reflow.
+- **`useControllerLookup` is the reverse direction**, and the file's one thing that isn't about *our* connection: a typed `0x…` or Controller username → an address, for a field naming someone else (a recipient). It lives here because the Cartridge lookup is the same kind of one-shot SDK promise `username` is. **Two traps, both in its doc comment**: `/lookup` matches a username exactly, so the query is lowercased, and no address is reported while the lookup is settling — the previous one is still cached and acting on it would mint to the wrong account.
 
 ## 4. Contract calls (`client/src/hooks/contracts/`)
 
@@ -75,7 +76,7 @@ hooks/contracts/
   use-contract-mutation.tsx  useContractMutation — send, await the receipt, toast
   use-game.ts              useGetDuelDeck, useGetDuelProgress
   use-pack-token.ts        useCanClaimStarterPack, useClaimStarterPack, useCanPurchase,
-                           useCalcMintFee, usePurchase, usePurchaseRandom, useOpenPack
+                           useCalcMintFee, usePurchase, usePurchaseRandom, useAirdrop, useOpenPack
   use-ring-token.ts        useCanClaimRing, useClaimRing
 ```
 
