@@ -23,6 +23,15 @@ import { cn } from '@/lib/cn';
 // chrome is only what is true of every deck — its name, its pages, and the way back.
 //
 
+//
+// A word beside a deck whose count is surprising on its own. The felt shows what the account
+// *holds*, and a duel only ever ends up with its winner — so a player who has duelled plenty still
+// opens a near-empty deck, which reads as cards gone missing rather than cards never won.
+//
+const DECK_NOTES: Record<string, string> = {
+  duels: 'You own only duels you won',
+};
+
 export function DeckCardsPage({ className }: { className?: string }) {
   const router = useRouter();
   const { deck, page, pages, turnPage, hand, zoomed, stepZoom } = useDecksView();
@@ -50,7 +59,8 @@ export function DeckCardsPage({ className }: { className?: string }) {
           <h2>{deck.name}</h2>
           <p className="text-ps-text/60 text-sm">
             {deck.game} · {deck.cardIds.length} cards
-          </p>
+            {DECK_NOTES[deck.slug] && ` · (${DECK_NOTES[deck.slug]})`}
+           </p>
         </div>
       </div>
 
