@@ -2,7 +2,7 @@
 
 import { Check, Copy, ExternalLink, Layers } from 'lucide-react';
 import type { Chain } from '@starknet-react/chains';
-import { shortAddress } from '@underware/pistols-sdk/utils';
+import { bigintToAddress, shortAddress } from '@underware/pistols-sdk/utils';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { PROFILE_NAME } from '@/dojo/config';
@@ -228,7 +228,7 @@ function CopyAddress({ address }: { address: string }) {
   // Both handlers are passed, so a clipboard the browser refuses us (an insecure origin, a denied
   // permission) simply leaves the icon alone instead of rejecting into nothing.
   const copy = () =>
-    navigator.clipboard.writeText(address).then(
+    navigator.clipboard.writeText(bigintToAddress(address)).then(
       () => setIsCopied(true),
       () => setIsCopied(false),
     );
