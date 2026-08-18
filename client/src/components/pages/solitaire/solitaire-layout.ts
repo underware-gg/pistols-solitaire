@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { fitDistance, type HalfExtents } from '@/engine/camera-fit';
-import { CARD_HEIGHT, CARD_THICKNESS, STANDARD_ASPECT, cardWidth } from '@/engine/card-geometry';
+import { CARD_THICKNESS, STANDARD_ASPECT, cardHeight, cardWidth } from '@/engine/card-geometry';
 import { FACE_DOWN, FACE_UP, type Pose } from '@/engine/card-pose';
 import type { Pile, PileSpec } from '@/solitaire/types';
 
@@ -16,8 +16,10 @@ import type { Pile, PileSpec } from '@/solitaire/types';
 // their declared `fan`, so Klondike's seven columns and FreeCell's four cells would both be laid out by
 // this file without it knowing that either game exists.
 //
-// The card is the 2:3 painted deck (`STANDARD_ASPECT`), narrower than `/decks`'s token cards — so
-// `CARD_WIDTH` is deliberately never used here; every width goes through `cardWidth(ASPECT)`.
+// The card is the 2:3 painted deck (`STANDARD_ASPECT`), narrower than `/decks`'s token cards — a
+// card is fitted inside the default card's box (`card-geometry.ts`), so this one keeps the full
+// height and gives up width. `CARD_WIDTH`/`CARD_HEIGHT` are deliberately never used here: every
+// dimension goes through `WIDTH` and `HEIGHT` below.
 //
 
 /** Degrees to radians, for `BOARD`'s angles on their way into a `Pose`. See the note above. */
@@ -25,7 +27,9 @@ const radians = THREE.MathUtils.degToRad;
 
 /** The deck this table is played with. */
 export const ASPECT = STANDARD_ASPECT;
-const WIDTH = cardWidth(ASPECT);
+/** This deck's card, fitted to its shape — see the note above. */
+export const WIDTH = cardWidth(ASPECT);
+export const HEIGHT = cardHeight(ASPECT);
 
 /** Which way a drawn card turns over — see `BOARD.drawTurn`. */
 export type DrawTurn = 'over' | 'sideways';
@@ -179,15 +183,15 @@ export type BoardMetrics = { columns: number; rows: number; shiftZ: number };
  * This is exactly the problem `/decks`'s `gridShiftX` solves for its pile, one axis over.
  */
 const zExtent = (rows: number) => {
-  const rowZ = (row: number) => (row - (rows - 1) / 2) * CARD_HEIGHT * BOARD.rowGap;
+  const rowZ = (row: number) => (row - (rows - 1) / 2) * HEIGHT * BOARD.rowGap;
   // A column the length `BOARD.fitFaceDown`/`fitFaceUp` describes, fanned at each card's own spacing.
   const reach =
-    (BOARD.fitFaceDown * BOARD.fanDownFaceDown + BOARD.fitFaceUp * BOARD.fanDown) * CARD_HEIGHT;
+    (BOARD.fitFaceDown * BOARD.fanDownFaceDown + BOARD.fitFaceUp * BOARD.fanDown) * HEIGHT;
   return {
     // The top edge of the topmost card.
-    near: rowZ(0) - CARD_HEIGHT / 2,
+    near: rowZ(0) - HEIGHT / 2,
     // The bottom edge of the longest column hanging off the last row.
-    far: rowZ(rows - 1) + reach + CARD_HEIGHT / 2,
+    far: rowZ(rows - 1) + reach + HEIGHT / 2,
   };
 };
 
@@ -201,7 +205,7 @@ export const boardMetrics = (piles: (Pile | PileSpec)[]): BoardMetrics => {
 /** Where a pile's first card sits, in world space — its grid cell, centred and shifted. */
 export const pileAnchor = (pile: Pile | PileSpec, board: BoardMetrics): [number, number] => [
   (pile.column - (board.columns - 1) / 2) * WIDTH * BOARD.columnGap,
-  (pile.row - (board.rows - 1) / 2) * CARD_HEIGHT * BOARD.rowGap + board.shiftZ,
+  (pile.row - (board.rows - 1) / 2) * HEIGHT * BOARD.rowGap + board.shiftZ,
 ];
 
 /** Height of the nth card of a pile resting on the felt. */
@@ -220,7 +224,7 @@ const fanOffset = (pile: Pile, index: number): [number, number] => {
       for (let i = 0; i < index; i++) {
         z += pile.cards[i]?.faceUp ? BOARD.fanDown : BOARD.fanDownFaceDown;
       }
-      return [0, z * CARD_HEIGHT];
+      return [0, z * HEIGHT];
     }
     case 'right': {
       //
@@ -294,7 +298,7 @@ export const dragPose = (point: [number, number, number], indexInRun: number): P
   position: [
     point[0],
     BOARD.dragHeight + indexInRun * CARD_THICKNESS * 3,
-    point[2] + indexInRun * BOARD.fanDown * CARD_HEIGHT,
+    point[2] + indexInRun * BOARD.fanDown * HEIGHT,
   ],
   rotation: [FACE_UP + radians(BOARD.hoverTilt), 0, 0],
   scale: BOARD.hoverScale,

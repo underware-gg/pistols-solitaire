@@ -94,6 +94,11 @@ function validateNetwork(name, net) {
       }
       if (!ADDRESS_RE.test(c?.address ?? '')) errors.push(`${label}: invalid address "${c?.address ?? ''}"`)
       if (!Number.isInteger(c?.block) || c.block < 0) errors.push(`${label}: "block" must be a non-negative integer`)
+      // Client-only fields (see README). Torii never sees them, but a typo here is a broken card
+      // shape on the felt with nothing to say so — and this is the one place the file is validated.
+      if (c?.aspect !== undefined && !(typeof c.aspect === 'number' && c.aspect > 0)) {
+        errors.push(`${label}: "aspect" must be a positive number`)
+      }
 
       // same address twice would make Torii index it twice
       const key = String(c?.address ?? '').toLowerCase().replace(/^0x0*/, '0x')

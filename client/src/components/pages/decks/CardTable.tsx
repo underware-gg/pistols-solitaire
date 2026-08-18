@@ -36,10 +36,16 @@ import {
   HTML_Z_RANGE,
   MOVE_LAMBDA,
   type Pose,
+  SQUARE_ASPECT,
   STANDARD_ASPECT,
   useCardArt,
 } from '@/engine';
-import { CARD_BACK_ALT_URL, CARD_BACK_URL, cardBackUrl } from '@/engine/card-art';
+import {
+  CARD_BACK_ALT_URL,
+  CARD_BACK_SQUARE_URL,
+  CARD_BACK_URL,
+  cardBackUrl,
+} from '@/engine/card-art';
 import { cn } from '@/lib/cn';
 import { useSolitaireStore } from '@/stores/solitaire-store';
 
@@ -72,6 +78,15 @@ export type TableDeck = {
   cardIds: string[];
   /** Set only for a deck that is not a collection — see {@link DeckArt}. */
   art?: DeckArt;
+  /**
+   * The shape this collection's cards are cut to, from `contracts.json`'s `aspect` — absent means
+   * the default token card. It picks the deck's back as well as its mesh (`cardBackUrl`), because a
+   * back is a picture and only the shapes we ship a file for can wear one without being stretched.
+   *
+   * A deck that is not a collection says it in {@link DeckArt} instead, which is where the rest of
+   * its art lives; {@link deckAspect} is the one place the two are read as one answer.
+   */
+  aspect?: number;
   /**
    * True while this deck's cards are still being counted, i.e. `cardIds` is empty because nobody has
    * answered yet rather than because the account holds none. The deck is on the felt either way — an
@@ -140,6 +155,13 @@ export type HandCard = { address: string; cardId: string };
 
 /** What the zoom calls a card on the felt. Unique across the collections in play; see {@link HandCard}. */
 export const handKey = ({ address, cardId }: HandCard): string => `${address}-${cardId}`;
+
+/**
+ * The shape a deck's cards are drawn at, whichever way it says so: a file deck's own art, else the
+ * collection's `aspect`. `undefined` is the default card — `Card3D` and `Deck3D` both default it,
+ * and so does `cardBackUrl`, so nothing downstream has to know which of the two answered.
+ */
+const deckAspect = (deck: TableDeck): number | undefined => deck.art?.aspect ?? deck.aspect;
 
 /**
  * One card laid out on the felt, with everything about it already resolved from whichever collection
@@ -277,10 +299,14 @@ function Table({
 
   //
   // The card backs, all loaded and pinned for the life of the table: pistols' own collections are
-  // printed on one and every other game on the other (`cardBackUrl`), and the deck that is not a
-  // collection carries its own. Loaded up front rather than per deck because there are only three of
-  // them and every deck on the felt wants one already — a hook cannot be called per deck anyway, and
-  // a back arriving late would flash blank stock across a whole table of face-down cards.
+  // printed on one and every other game on the other, a collection painted square on the square one
+  // (`cardBackUrl`), and the deck that is not a collection carries its own. Loaded up front rather
+  // than per deck because there are only four of them and every deck on the felt wants one already —
+  // a hook cannot be called per deck anyway, and a back arriving late would flash blank stock across
+  // a whole table of face-down cards.
+  //
+  // **Each is rasterized at the shape it is printed on**, since that is what its mesh will be; the
+  // deck's own `aspect` is what picks between them, so the two can never disagree.
   //
   // The house deck's back is **the one the player chose on `/solitaire`**: it is the same deck, so it
   // is the same back. Asked for at `DECK_ART_HEIGHT` and `STANDARD_ASPECT`, which is exactly what
@@ -291,13 +317,19 @@ function Table({
   const cardBack = useSolitaireStore(s => s.cardBack);
   const homeBack = useCardArt(CARD_BACK_URL, { pin: true });
   const guestBack = useCardArt(CARD_BACK_ALT_URL, { pin: true });
+  const squareBack = useCardArt(CARD_BACK_SQUARE_URL, { aspect: SQUARE_ASPECT, pin: true });
   const houseBack = useCardArt(backUrl(cardBack), {
     aspect: STANDARD_ASPECT,
     height: DECK_ART_HEIGHT,
     pin: true,
   });
+  const tokenBacks: Record<string, THREE.Texture | undefined> = {
+    [CARD_BACK_URL]: homeBack,
+    [CARD_BACK_ALT_URL]: guestBack,
+    [CARD_BACK_SQUARE_URL]: squareBack,
+  };
   const backFor = (deck: TableDeck) =>
-    deck.art ? houseBack : cardBackUrl(deck.game) === CARD_BACK_URL ? homeBack : guestBack;
+    deck.art ? houseBack : tokenBacks[cardBackUrl(deck.game, deck.aspect)];
 
   const open = selected === null ? undefined : decks[selected];
   //
@@ -424,7 +456,7 @@ function Table({
           frontUrl: art ? art.face(cardId) : tokenImageUrl(dealt.address, cardId),
           back: backFor(dealt),
           background,
-          aspect: art?.aspect,
+          aspect: deckAspect(dealt),
           pose: open ? gridPose(index, columns, actions) : home,
           initial: pile,
           delay: open ? DEAL_DELAY + index * DEAL_STAGGER : 0,
@@ -442,6 +474,7 @@ function Table({
               frontUrl: tokenImageUrl(showing.address, cardId),
               back: backFor(revealDeck),
               background: revealMeta?.backgroundColor,
+              aspect: deckAspect(revealDeck),
               // The slots the deal left over, taken up from where its last card lies so a short page
               // leaves no gap in the middle of the grid.
               pose: reveal ? gridPose(hand.length + index, columns, actions) : revealHome,
@@ -539,7 +572,7 @@ function Table({
             cardPose={deckCardPose}
             hoverPose={hoveredDeckPose}
             back={backFor(deck)}
-            aspect={deck.art?.aspect}
+            aspect={deckAspect(deck)}
             pose={
               selected === null
                 ? deckPose(index, decks.length)

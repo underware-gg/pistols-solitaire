@@ -166,6 +166,9 @@ export function DecksScene({ children }: { children: ReactNode }) {
         game: token.game,
         slug: token.slug,
         name: token.name,
+        // The shape this collection's art is painted at, straight off `contracts.json` — it cuts the
+        // cards and picks the deck's back, both in `CardTable`.
+        aspect: token.aspect,
         cardIds: balances.erc721[token.address] ?? [],
         loading: isLoading,
         //

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CARD_HEIGHT, CARD_ASPECT, cardCornerRadius } from '@/engine/card-geometry';
+import { CARD_ASPECT, cardCornerRadius, cardWidth } from '@/engine/card-geometry';
 
 //
 // The empty slot: a card-shaped dashed outline, for a place on the felt where a card belongs and
@@ -20,7 +20,7 @@ import { CARD_HEIGHT, CARD_ASPECT, cardCornerRadius } from '@/engine/card-geomet
 
 /** Texels down the slot; the width follows from the aspect. It is one flat shape, so this is plenty. */
 const TEXTURE_HEIGHT = 512;
-/** Border thickness, in card heights — "thick", i.e. read as a drawn edge and not as a hairline. */
+/** Border thickness, in world units — "thick", i.e. read as a drawn edge and not as a hairline. */
 const BORDER_WIDTH = 0.017;
 /** Dash and gap, in border widths. */
 const DASH = 2.0;
@@ -48,8 +48,10 @@ export const cardSlotTexture = (aspect = CARD_ASPECT): THREE.CanvasTexture => {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The card slot needs a 2D context');
 
-  // Card units are card heights, and the canvas is one card tall — so this is the scale factor.
-  const perCard = TEXTURE_HEIGHT / CARD_HEIGHT;
+  // Texels per world unit — the canvas is one card of this shape, so this converts the border and
+  // the corner out of card units. Both card dimensions shrink with the shape (`card-geometry.ts`),
+  // so it is read off the width rather than assumed to be the texture height.
+  const perCard = canvas.width / cardWidth(aspect);
   const width = BORDER_WIDTH * perCard;
   // The stroke straddles its path, so the path is inset by half a border to keep it on the canvas,
   // and the corner radius follows it in (which is what keeps the corners concentric with a card's).

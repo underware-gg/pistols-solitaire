@@ -3,7 +3,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { CARD_ASPECT, CARD_HEIGHT, cardWidth } from '@/engine/card-geometry';
+import { CARD_ASPECT, cardHeight, cardWidth } from '@/engine/card-geometry';
 import { applyPose, damp, dampQuaternion, type Pose, POSE_EULER_ORDER } from '@/engine/card-pose';
 
 //
@@ -63,7 +63,7 @@ const _axis = new THREE.Vector3();
  * yaw, half a height standing on the short edge, and half a width standing on the long one.
  */
 const overhang = (q: THREE.Quaternion, aspect: number): number =>
-  Math.abs(_axis.set(0, 1, 0).applyQuaternion(q).y) * (CARD_HEIGHT / 2) +
+  Math.abs(_axis.set(0, 1, 0).applyQuaternion(q).y) * (cardHeight(aspect) / 2) +
   Math.abs(_axis.set(1, 0, 0).applyQuaternion(q).y) * (cardWidth(aspect) / 2);
 
 /** The same, for a pose's Euler triple — the orientation an object mounts at. */

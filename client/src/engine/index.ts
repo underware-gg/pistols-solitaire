@@ -42,7 +42,9 @@ export {
   CARD_WIDTH,
   cardCornerRadius,
   cardGeometry,
+  cardHeight,
   cardWidth,
+  SQUARE_ASPECT,
   STANDARD_ASPECT,
   TOKEN_ASPECT,
 } from '@/engine/card-geometry';

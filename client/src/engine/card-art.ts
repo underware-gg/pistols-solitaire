@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/engine/card-geometry';
+import { CARD_ASPECT, CARD_PAPER_COLOR, SQUARE_ASPECT } from '@/engine/card-geometry';
 
 //
 // Card art as a WebGL texture: loaded, rasterized onto card stock, cached, and disposed.
@@ -7,7 +7,7 @@ import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/engine/card-geometry';
 // Every source takes the same path. Torii serves a token's image (`tokenImageUrl()`), which for a
 // Pistols token is a ~750KB SVG with the artwork embedded in it; the token backs are PNGs in
 // `public/cards/`; the standard 52-card deck is 1024×1536 JPEGs in `public/deck/`. None of them can go
-// straight to three's `TextureLoader`: `card_back.png` is 2996×4197 (~50MB of VRAM at full size), an
+// straight to three's `TextureLoader`: a card back was 2996×4197 (~50MB of VRAM at full size), an
 // SVG has no raster size at all, and a whole painted deck uploaded at source resolution is ~340MB of
 // VRAM for cards drawn a couple of hundred pixels tall. So every image is drawn into a canvas at the
 // size the table actually needs and uploaded from there — `drawImage` with explicit dimensions
@@ -34,22 +34,34 @@ import { CARD_ASPECT, CARD_PAPER_COLOR } from '@/engine/card-geometry';
 
 /**
  * The card backs, from `public/cards/`. Pistols' own collections are printed on the Pistols back;
- * everything else on the table is a guest, and carries the plain one.
+ * everything else on the table is a guest, and carries the plain one. Both are 5:7; the third is
+ * for a collection painted square (`SQUARE_ASPECT`), which neither of them can be stretched onto.
  */
-export const CARD_BACK_URL = '/cards/card_back.png';
-export const CARD_BACK_ALT_URL = '/cards/card_back2.png';
+export const CARD_BACK_URL = '/cards/card_back_pistols.png';
+export const CARD_BACK_ALT_URL = '/cards/card_back_generic.png';
+export const CARD_BACK_SQUARE_URL = '/cards/card_back_square.png';
 
 /** The game whose cards use {@link CARD_BACK_URL} — `contracts.json`'s `game`, not a display name. */
 const MAIN_GAME = 'pistols';
 
 /**
- * Which back a collection's cards are printed on, by its `game`.
+ * Which back a collection's cards are printed on: by its **shape** first, then by its `game`.
  *
- * There are exactly two, so both are loaded and pinned up front (`CardTable`) and this only picks
- * between them — a per-collection back would want a map in `contracts.json` instead.
+ * A back is a picture of a fixed shape, so it has to match the mesh it goes on or it is visibly
+ * stretched — which is why `contracts.json`'s `aspect` is asked before the game is. A square
+ * collection carries the square back whichever game it belongs to; every other collection is 5:7
+ * and picks between the two portrait backs.
+ *
+ * There are three, so all three are loaded and pinned up front (`CardTable`) and this only picks
+ * between them. **A shape with no back of its own is drawn on a stretched one**: a fourth `aspect`
+ * in `contracts.json` needs a fourth file here, and a per-collection back would want its own field.
  */
-export const cardBackUrl = (game?: string): string =>
-  game === MAIN_GAME ? CARD_BACK_URL : CARD_BACK_ALT_URL;
+export const cardBackUrl = (game?: string, aspect?: number): string =>
+  aspect === SQUARE_ASPECT
+    ? CARD_BACK_SQUARE_URL
+    : game === MAIN_GAME
+      ? CARD_BACK_URL
+      : CARD_BACK_ALT_URL;
 
 /**
  * Height in texels every card face is rasterized to; the width follows from `CARD_ASPECT`.

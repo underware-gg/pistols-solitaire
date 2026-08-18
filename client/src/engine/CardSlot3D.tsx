@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CARD_ASPECT, CARD_HEIGHT, CARD_THICKNESS, cardWidth } from '@/engine/card-geometry';
+import { CARD_ASPECT, CARD_THICKNESS, cardHeight, cardWidth } from '@/engine/card-geometry';
 import { FACE_UP } from '@/engine/card-pose';
 import { cardSlotTexture } from '@/engine/card-slot';
 
@@ -32,7 +32,7 @@ export function CardSlot3D({ aspect = CARD_ASPECT }: { aspect?: number }) {
   const texture = useMemo(() => cardSlotTexture(aspect), [aspect]);
   return (
     <mesh position={[0, SLOT_HEIGHT, 0]} rotation={[FACE_UP, 0, 0]}>
-      <planeGeometry args={[cardWidth(aspect) * SLOT_SCALE, CARD_HEIGHT * SLOT_SCALE]} />
+      <planeGeometry args={[cardWidth(aspect) * SLOT_SCALE, cardHeight(aspect) * SLOT_SCALE]} />
       <meshBasicMaterial map={texture} transparent opacity={SLOT_OPACITY} depthWrite={false} />
     </mesh>
   );

@@ -12,12 +12,14 @@ import {
   dragPose,
   drawnFrom,
   dropPoint,
+  HEIGHT,
   hoveredCardPose,
   hoveredDeckPose,
   pilePose,
   returnedTo,
   stockCardPose,
   stockTop,
+  WIDTH,
   winPose,
 } from '@/components/pages/solitaire/solitaire-layout';
 import {
@@ -494,7 +496,7 @@ export function SolitaireTable({
 function DropTarget({ point }: { point: [number, number] }) {
   return (
     <mesh position={[point[0], 0.004, point[1]]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[ASPECT * 1.14, 1.14]} />
+      <planeGeometry args={[WIDTH * 1.14, HEIGHT * 1.14]} />
       <meshBasicMaterial color="#ffd84d" transparent opacity={0.3} depthWrite={false} />
     </mesh>
   );
@@ -510,7 +512,7 @@ function DropTarget({ point }: { point: [number, number] }) {
 function Marker() {
   return (
     <mesh position={[0, 0, -0.006]}>
-      <planeGeometry args={[ASPECT * 1.16, 1.16]} />
+      <planeGeometry args={[WIDTH * 1.16, HEIGHT * 1.16]} />
       <meshBasicMaterial color="#ffd84d" transparent opacity={0.55} depthWrite={false} />
     </mesh>
   );

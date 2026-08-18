@@ -7,30 +7,58 @@ import * as THREE from 'three';
 //
 // **One geometry per aspect ratio, shared by every card of that shape.** Cards differ only in their
 // front texture, so a table never needs more than one; `cardGeometry` memoizes per aspect because
-// the app deals two different decks — Torii's 5:7 token art and the 2:3 painted deck in
-// `public/deck/` — and stretching either onto the other's mesh is visible immediately. Nothing here
-// needs a browser: the module is import-safe on the server.
+// the app deals several decks — Torii's 5:7 token art, the 2:3 painted deck in `public/deck/`, and
+// whatever shape a collection declares in `contracts.json` — and stretching one onto another's mesh
+// is visible immediately. Nothing here needs a browser: the module is import-safe on the server.
+//
+// **Whatever its shape, a card is cut to fit inside the default card's box** (`cardWidth`,
+// `cardHeight`): never wider than `CARD_WIDTH`, never taller than `CARD_HEIGHT`, and as big as it
+// can be within both. A wide card keeps the full width and is cut shorter; a narrow one keeps the
+// full height and is cut narrower.
+//
+// Both bounds are load-bearing, because every table here pitches its columns by `CARD_WIDTH` and
+// frames its rows by `CARD_HEIGHT`: a square card cut to a fixed *height* would be half a card wider
+// than the column it is dealt into and would overlap its neighbours, and a tall one cut to a fixed
+// *width* would stand higher than the card back the whole table is framed for. It is also what a
+// real deck looks like — one deal, one card back, whatever is printed on the fronts.
 //
 
 /**
- * Torii token art: `public/cards/card_back.png` is 2996×4197 and the token images are 771×1080 —
+ * Torii token art: the card backs in `public/cards/` are 800×1120 and the token images 771×1080 —
  * both 5:7, so the mesh, the back and the fronts all agree.
  */
 export const TOKEN_ASPECT = 5 / 7;
 /** The standard 52-card deck in `public/deck/`: every face and back is 1024×1536, i.e. exactly 2:3. */
 export const STANDARD_ASPECT = 2 / 3;
+/**
+ * A collection whose art is painted square — `contracts.json`'s `aspect: 1`. The one shape besides
+ * the two above that the app ships a card back for (`CARD_BACK_SQUARE_URL`).
+ */
+export const SQUARE_ASPECT = 1;
 
 /** The default shape, kept as the name the token table has always used. */
 export const CARD_ASPECT = TOKEN_ASPECT;
 
-/** The card is one world unit tall; every distance on every table is expressed in card heights. */
+/** The default card is one world unit tall; every distance on every table is expressed in card heights. */
 export const CARD_HEIGHT = 1;
-/** Width of a default-aspect card. For any other shape use `cardWidth(aspect)`. */
+/** Width of the default card, and **the widest any card is cut** — see the note above. */
 export const CARD_WIDTH = CARD_HEIGHT * CARD_ASPECT;
 export const CARD_THICKNESS = 0.008;
 
-/** How wide a card of the given aspect is, in card heights. */
-export const cardWidth = (aspect = CARD_ASPECT): number => CARD_HEIGHT * aspect;
+//
+// The card's box, fitted inside the default card's. A shape at least as wide as the default one is
+// bounded by the width and gives up height; a narrower one is bounded by the height and gives up
+// width. The two agree exactly at `CARD_ASPECT`, where both return the default card.
+//
+// **A layout for a non-default deck measures with these, never with the two constants**, which are
+// the *default* card's dimensions and not every card's.
+//
+/** How wide a card of the given aspect is. */
+export const cardWidth = (aspect = CARD_ASPECT): number =>
+  aspect >= CARD_ASPECT ? CARD_WIDTH : CARD_HEIGHT * aspect;
+/** How tall a card of the given aspect is. */
+export const cardHeight = (aspect = CARD_ASPECT): number =>
+  aspect >= CARD_ASPECT ? CARD_WIDTH / aspect : CARD_HEIGHT;
 
 /** Card stock, for a face whose art has not arrived (or does not fill it). */
 export const CARD_PAPER_COLOR = '#e0cda7';
@@ -142,8 +170,10 @@ export const buildCardGeometry = (
 
 //
 // One geometry per shape, built on first use and kept for the session. Keyed on the aspect alone
-// because height and thickness are the same for every card in the app — a table that wants thicker
-// cards should change `CARD_THICKNESS`, not build a second geometry behind this cache's back.
+// because everything else about a card follows from it — width, height and corner are all fitted to
+// the default card's box above, and the thickness is the same for every card in the app. A table
+// that wants thicker cards should change `CARD_THICKNESS`, not build a second geometry behind this
+// cache's back.
 //
 const geometries = new Map<number, THREE.BufferGeometry>();
 
@@ -153,7 +183,7 @@ export const cardGeometry = (aspect = CARD_ASPECT): THREE.BufferGeometry => {
   if (cached) return cached;
   const geometry = buildCardGeometry(
     cardWidth(aspect),
-    CARD_HEIGHT,
+    cardHeight(aspect),
     CARD_THICKNESS,
     cardCornerRadius(aspect),
   );

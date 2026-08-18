@@ -65,6 +65,12 @@ export type TokenContract = {
    * `ContractsProvider` prefers the collection's own `background_color` and falls back to this.
    */
   bgColor?: string;
+  /**
+   * The shape this collection's art is painted at, when it is not the default card. Absent means
+   * the token card (`CARD_ASPECT`); `1` is a square collection, which also carries its own card
+   * back (`cardBackUrl`). See `specs/DECKS.md` §4.
+   */
+  aspect?: number;
 };
 
 export type ProfileConfig = {
@@ -166,6 +172,7 @@ export type ContractEntry = {
   address: string;
   block?: number;
   bgColor?: string;
+  aspect?: number;
   enabled?: boolean;
 };
 
@@ -204,6 +211,7 @@ const profileTokens = (chainName: ChainId, pistols: Record<string, string>): Tok
         (entry.game === 'pistols' ? pistols[entry.name] : undefined) ??
         bigintToAddress(entry.address),
       bgColor: entry.bgColor,
+      aspect: entry.aspect,
     }));
 
 export const getProfileConfig = (profileName: ProfileName): ProfileConfig => {

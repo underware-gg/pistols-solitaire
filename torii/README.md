@@ -69,6 +69,15 @@ up in the same Torii `indexing.contracts` array, worlds first:
 | `block`   | deployment block — Torii backfills that entry from here, not genesis      |
 | `enabled` | `false` = ignored entirely, stays in the file for later                   |
 
+The client reads the same file and takes three more fields off a contract; Torii ignores all three,
+but `pnpm check` validates them so a typo is caught here rather than on the felt:
+
+| field     | meaning                                                                  |
+| --------- | ------------------------------------------------------------------------ |
+| `slug`    | URL-safe id, unique per network — the collection's name in `/deck/<slug>` |
+| `bgColor` | `#rrggbb` card stock, when the contract's own metadata ships none         |
+| `aspect`  | optional card shape (`1` = square); absent = the default card            |
+
 `pnpm check` prints the live per-game breakdown.
 
 ### Multiple worlds
