@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, Wallet } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 // import { useDecksView } from '@/components/pages/decks/DecksScene';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +27,7 @@ const GAME_OPTIONS: SegmentedOption<GameFilter>[] = [
 
 export function DecksPage({ className }: { className?: string }) {
   const router = useRouter();
-  const { isConnected, isConnecting, connect } = useController();
+  const { isConnected } = useController();
   const gameFilter = useSettingsStore(s => s.gameFilter);
   const setGameFilter = useSettingsStore(s => s.setGameFilter);
   // const { isLoading } = useDecksView();
@@ -53,16 +53,8 @@ export function DecksPage({ className }: { className?: string }) {
         </p> */}
       </div>
 
-      {!isConnected && (
-        <>
-          <Button className="pointer-events-auto ml-auto" onClick={connect} disabled={isConnecting}>
-            <Wallet className="size-4" />
-            {isConnecting ? 'Connecting…' : 'Connect'}
-          </Button>
-          <div className="flex-1" />
-        </>
-      )}
-
+      {/* Nothing to filter until there is an account: connecting is the header's job, not a
+       * second button here. */}
       {isConnected && (
         <SegmentedControl
           className="pointer-events-auto ml-auto"

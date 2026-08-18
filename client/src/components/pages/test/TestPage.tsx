@@ -1,6 +1,6 @@
 'use client';
 
-import { LogIn, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import type { constants } from '@underware/pistols-sdk/pistols/gen';
 import { weiToEthString } from '@underware/pistols-sdk/starknet';
 import { isPositiveBigint, shortAddress } from '@underware/pistols-sdk/utils';
@@ -63,20 +63,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function AccountSection() {
-  const { isConnected, isConnecting, address, connect, disconnect } = useController();
+  const { isConnected, address, disconnect } = useController();
 
   return (
     <Section title="account">
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant={isConnected ? 'secondary' : 'primary'}
-          onClick={isConnected ? disconnect : connect}
-          disabled={isConnecting}
-        >
-          {isConnected ? <LogOut className="size-4" /> : <LogIn className="size-4" />}
-          {isConnected ? 'Disconnect' : isConnecting ? 'Connecting…' : 'Connect'}
-        </Button>
+        {/* Connecting is the header's `ControllerButton` — the bench only offers the way out. */}
         <ControllerButton />
+        {isConnected && (
+          <Button variant="secondary" onClick={disconnect}>
+            <LogOut className="size-4" />
+            Disconnect
+          </Button>
+        )}
         <span className="font-mono text-ps-text/60 text-xs">
           {address ? shortAddress(address) : 'no account'}
         </span>

@@ -1,9 +1,8 @@
 'use client';
 
-import { Coins, Images, Wallet } from 'lucide-react';
+import { Coins, Images } from 'lucide-react';
 import { weiToEthString } from '@underware/pistols-sdk/starknet';
 import { useTokenBalances } from '@/components/providers/TokensProvider';
-import { Button } from '@/components/ui/Button';
 import { PROFILE } from '@/dojo/config';
 import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
@@ -16,16 +15,12 @@ import { cn } from '@/lib/cn';
 const GAMES = [...new Set(PROFILE.tokens.map(token => token.game))];
 
 export function TokensPanel({ className }: { className?: string }) {
-  const { isConnected, isConnecting, connect } = useController();
+  const { isConnected } = useController();
   const { isLoading, balances } = useTokenBalances();
 
+  // Connecting is the header's, so an empty inventory just says so.
   if (!isConnected) {
-    return (
-      <Button onClick={connect} disabled={isConnecting} className={className}>
-        <Wallet className="size-4" />
-        {isConnecting ? 'Connecting…' : 'Connect'}
-      </Button>
-    );
+    return <p className={cn('text-ps-text/60 text-sm', className)}>Not connected.</p>;
   }
 
   return (

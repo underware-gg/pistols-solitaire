@@ -6,10 +6,11 @@ import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
 import { pascalCase } from '@/utils/misc';
 
-// The connected account: opens the Controller. Renders nothing while disconnected —
-// connecting and disconnecting are both `HeaderMenu` options.
+// The account's spot in the header, and the app's *only* way in: the Connect button while
+// disconnected, the connected account — which opens the Controller — once in. No page or menu
+// offers a second one; disconnecting stays a `HeaderMenu` option.
 export function ControllerButton({ className }: { className?: string }) {
-  const { isConnected, isConnecting, username, address, openController } = useController();
+  const { isConnected, isConnecting, username, address, connect, openController } = useController();
 
   //
   // A page load reconnects the last used Controller before it can say who the player is, so the
@@ -20,7 +21,13 @@ export function ControllerButton({ className }: { className?: string }) {
     return <Spinner size="sm" label="Connecting" className={cn('text-ps-text/60', className)} />;
   }
 
-  if (!isConnected) return null;
+  if (!isConnected) {
+    return (
+      <Button variant="secondary" onClick={connect} className={className}>
+        Connect
+      </Button>
+    );
+  }
 
   return (
     <Button variant="text" onClick={() => openController()} className={className}>

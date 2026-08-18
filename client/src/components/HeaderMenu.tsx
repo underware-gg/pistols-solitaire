@@ -1,6 +1,6 @@
 'use client';
 
-import { House, type LucideIcon, LogIn, LogOut, Menu, Brush, ScrollText } from 'lucide-react';
+import { House, type LucideIcon, LogOut, Menu, Brush, ScrollText } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -10,8 +10,8 @@ import { useSettingsStore } from '@/stores/settings-store';
 
 //
 // The header's hamburger — the home for actions that don't deserve a button of their own:
-// connect / disconnect and the settings. The connected account itself stays on the
-// `ControllerButton` next to it.
+// navigation, the settings, and disconnecting. Connecting is not one of them: the single way in is
+// the `ControllerButton` next to it, which is also where the connected account lives.
 //
 // "Switch table" cycles the felt colour and deliberately leaves the menu open — it is the
 // one item whose effect is visible behind the panel, so cycling to the table you want takes
@@ -23,15 +23,11 @@ import { useSettingsStore } from '@/stores/settings-store';
 
 export function HeaderMenu({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  const { isConnected, isConnecting, connect, disconnect } = useController();
+  const { isConnected, disconnect } = useController();
   const cycleTableColor = useSettingsStore(s => s.cycleTableColor);
   const router = useRouter();
   // A route already open is dropped from the menu rather than shown as a no-op.
   const pathname = usePathname();
-
-  const action = isConnected
-    ? { label: 'Disconnect', icon: LogOut, run: disconnect }
-    : { label: isConnecting ? 'Connecting…' : 'Connect', icon: LogIn, run: connect };
 
   return (
     <div className={cn('relative', className)}>
@@ -75,14 +71,16 @@ export function HeaderMenu({ className }: { className?: string }) {
                 }}
               />
             )}
-            <MenuButton
-              icon={action.icon}
-              label={action.label}
-              onClick={() => {
-                setIsOpen(false);
-                action.run();
-              }}
-            />
+            {isConnected && (
+              <MenuButton
+                icon={LogOut}
+                label="Disconnect"
+                onClick={() => {
+                  setIsOpen(false);
+                  disconnect();
+                }}
+              />
+            )}
           </ul>
         </>
       )}
