@@ -18,7 +18,6 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 | [`ENGINE.md`](./specs/ENGINE.md) | anything that renders a card | the 3D card engine (`src/engine/`), recipe for a new table |
 | [`SOLITAIRE.md`](./specs/SOLITAIRE.md) | anything about a card *game* | the rules engine (`src/solitaire/`), recipe for a new variant |
 | [`DECKS.md`](./specs/DECKS.md) | anything on `/decks` or `/deck/<slug>` | the token browser: the layout-mounted canvas, paging, zoom, the starter pack |
-| [`torii/CLAUDE.md`](./torii/CLAUDE.md) | `torii/`, or the indexing side of `contracts.json` | the indexer deployment |
 
 `CODING_STYLE.md` and `NEXTJS_DATA_FLOW.md` are ported from `/Users/roger/Dev/CC/ec-dapp/specs/` — read the originals when a rule needs context, keep the ports in sync, and never "fix" a difference marked **[diverges]**. The rest are ours alone.
 
@@ -26,7 +25,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ## Repository state
 
-An early scaffold (`underware-gg/pistols-solitaire`), with two areas: the **Torii indexer deployment** (`contracts.json`, `railway.toml`, `torii/`) and the **pnpm/Turbo workspace** with a Next.js `client/`.
+An early scaffold (`underware-gg/pistols-solitaire`): a **pnpm/Turbo workspace** with a Next.js `client/`. The Torii indexer it reads from lives in its own repo, `underware-gg/torii-deployment` — see § `contracts.json` below.
 
 There is **no Cairo/Dojo code of our own** and **no tests anywhere** — do not assume a test command exists. The client reads the *existing* Pistols world through `@underware/pistols-sdk` and our Torii; it deploys nothing. Check `package.json` before suggesting a command.
 
@@ -34,7 +33,7 @@ There is **no Cairo/Dojo code of our own** and **no tests anywhere** — do not 
 
 ## Workspace (`pnpm-workspace.yaml`, `turbo.json`)
 
-pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. The only member is `client`; `torii`'s scripts run from inside `torii/`.
+pnpm workspace + Turborepo, mirroring `/Users/roger/Dev/Realms/pistols`. The only member is `client`.
 
 - **Shared dep versions live in the `catalog:` block** — packages say `"next": "catalog:"`, so bump the catalog, not the manifests.
 - Root scripts delegate to Turbo; `format` runs Biome over `client`. `dev:all` is `turbo dev storybook`.
@@ -77,11 +76,12 @@ The pages: `/` home, `/solitaire` (→ `SOLITAIRE.md`), `/decks` + `/deck/<slug>
 - **Dev runs over HTTPS** (`--experimental-https`); don't "simplify" it back to http. The Cartridge keychain's `frame-ancestors` allows plain http only for `localhost`/`127.0.0.1`, so from any other host Connect silently does nothing with no error of ours. Certs self-sign into `client/certificates/` (gitignored; installs an mkcert CA, may prompt for a password). `allowedDevOrigins` in `next.config.ts` keeps HMR alive at a LAN IP.
 - **Biome**: `biome.jsonc` at the root, `client/biome.jsonc` extends it. **Scoped to `client/`** deliberately — don't widen it without saying so. Details in `CODING_STYLE.md` § Formatting.
 
-## `contracts.json` — one file, two consumers
+## `contracts.json` — one file, two consumers, one repo
 
-At the repo root, and **the single source of truth** for what Torii indexes *and* what the client sees. The client side is `CHAIN.md` §2; the indexing side is `torii/CLAUDE.md`. One trap spans both:
+**The single source of truth** for what Torii indexes *and* what the client sees, and it lives in the indexer's repo, `underware-gg/torii-deployment` — never here. The client installs that repo as the git dependency `torii-deployment`, **pinned to a commit hash in the root `catalog:`** (`github:underware-gg/torii-deployment#<hash>`), and imports `torii-deployment/contracts.json`. The client side is `CHAIN.md` §2.
 
-**Torii never indexes backwards.** `indexing.world_block` is only a fallback for contracts with no row in the db yet; an indexed contract resumes from its stored `head`. So adding an *older* contract is free and backfills itself, but **re-indexing an existing contract from an earlier block, or dropping one, requires wiping data** — and `enabled: false` alone does not stop indexing it. Warn *before* editing `contracts.json`, offer both wipe options, and never wipe unasked.
+- **Editing the file is done in that repo**, followed by an indexer deploy; the client picks it up by bumping the hash and running `pnpm install`. The pin is deliberate: the client changes what it lists only on purpose, and never before the indexer indexes it. Never point the catalog at a branch.
+- **Do not copy the file back into this repo** (a local copy would drift from what Torii indexes) and never edit it under `node_modules/`.
 
 ## Reference repos on this machine
 

@@ -10,7 +10,7 @@ Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`), the
 
 - **Biome** is formatter and linter, configured by one root `biome.jsonc`; `client/biome.jsonc` is an `"extends": "//"` stub.
 - 2-space indentation, single quotes, semicolons, 100 columns.
-- **[diverges] Biome runs on `client/` only** — `torii/` and `contracts.json` predate the standard.
+- **[diverges] Biome runs on `client/` only** — the root holds only workspace config.
 - **[diverges] Tailwind directives are parsed, not excluded**, so `main.css` is linted and formatted.
 - **Rules ec-dapp downgraded to `warn`/`off` are its tracked debt, not permission** — we have no such legacy, so treat them as errors.
 - Match the surrounding code's idiom: comment density, naming, structure.

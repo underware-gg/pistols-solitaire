@@ -1,5 +1,0 @@
-*
-!contracts.json
-!torii/Dockerfile
-!torii/entrypoint.sh
-!torii/scripts/**

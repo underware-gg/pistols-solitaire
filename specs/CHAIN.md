@@ -18,9 +18,9 @@ One network at a time, selected by profile.
 
 ## 2. Contract addresses — two sources, never hand-typed
 
-- **`contracts.json` at the repo root** (via the `@root/*` alias), filtered to `enabled: true`, is what says which contracts are tokens, of which type, for which game. It is the same file Torii reads, so `PROFILE.tokens` is exactly what Torii has balances for. Adding a game's tokens = edit it and redeploy the indexer.
+- **`contracts.json` from the `torii-deployment` package** (the indexer's repo, a git dependency pinned to a commit in the root `catalog:` — `CLAUDE.md` § `contracts.json`), filtered to `enabled: true`, is what says which contracts are tokens, of which type, for which game. It is the same file Torii reads, so `PROFILE.tokens` is exactly what Torii has balances for. Adding a game's tokens = edit it there, redeploy the indexer, bump the hash here.
   - **`slug` is a URL-facing id** — the collection's name in `/deck/<slug>`, so **renaming one breaks every link to that deck**. `name` is the label on the felt.
-  - **`bgColor` and `aspect` are the client's own fields** — Torii ignores both, and `torii/scripts/generate-torii-config.mjs` validates them anyway because `pnpm check` is the only thing that ever reads this file for errors. `bgColor` is the card stock a contract's metadata doesn't ship (see `ContractsProvider` below); **`aspect` is the shape the collection's art is painted at** — absent means the default token card, `1` means square, and it decides the deck's cards, its empty slot *and* its card back (`DECKS.md` §4). A shape with no back file gets a stretched one, so a new value is a new asset, not just a number.
+  - **`bgColor` and `aspect` are the client's own fields** — Torii ignores both, and the deployment repo's `generate-torii-config.mjs` validates them anyway because its `pnpm check` is the only thing that ever reads this file for errors. `bgColor` is the card stock a contract's metadata doesn't ship (see `ContractsProvider` below); **`aspect` is the shape the collection's art is painted at** — absent means the default token card, `1` means square, and it decides the deck's cards, its empty slot *and* its card back (`DECKS.md` §4). A shape with no back file gets a stretched one, so a new value is a new asset, not just a number.
   - **`contractEntries(chainName)` in `profiles.ts` is the one reader of that file's shape** — `profileTokens` filters it to the enabled ones, `/contracts` lists all of them. A third consumer goes through it too.
   - **`MAIN_GAME` (`pistols`) leads every list, always**, and `contractEntries` is where that happens — a stable partition, so each game keeps its file order. `PROFILE.tokens` inherits it, and so does anything derived from either: the decks on the felt, `TokensPanel`'s sections, `/contracts`' groups. **Nothing downstream sorts by game again**, and a guest game never comes first because it happens to be first in the file.
 - **Addresses**: the `pistols` game's come from the SDK's Dojo manifests; every other game's exist only in `contracts.json`.
@@ -28,7 +28,7 @@ One network at a time, selected by profile.
 - `pistols/lords` is a deliberate loose end: the manifest resolves it, but `contracts.json` lists LORDS under the disabled `realms` game, so no balance is shown. Don't "fix" it by hardcoding it.
 - **There is no hardcoded list of token names anywhere** — that drifts.
 
-`contracts.json` is also what Torii indexes: **one file, two consumers**. The indexing side is `torii/CLAUDE.md`, and editing the file has consequences there — read it first.
+`contracts.json` is also what Torii indexes: **one file, two consumers**. The indexing side, and the file itself, are in `underware-gg/torii-deployment` — read its `CLAUDE.md` before editing it; Torii never indexes backwards, so a change there can mean wiping data.
 
 ## 3. Providers (`client/src/components/providers/`)
 

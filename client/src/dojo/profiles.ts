@@ -23,7 +23,7 @@ import {
 } from '@underware/pistols-sdk/pistols/config';
 import { stringToFelt } from '@underware/pistols-sdk/starknet';
 import { bigintToAddress, bigintToHex, isPositiveBigint } from '@underware/pistols-sdk/utils';
-import contractsJson from '@root/contracts.json';
+import contractsJson from 'torii-deployment/contracts.json';
 
 //
 // Chain profiles: one per network we ship, with every chain-dependent value in one place.
@@ -39,10 +39,11 @@ import contractsJson from '@root/contracts.json';
 // source for something the SDK already serves from one.
 //
 // `contractAddresses` and `tokens` are derived in `getProfileConfig()`. Which contracts are
-// tokens comes from `contracts.json` at the repo root — the same file that drives our Torii
-// indexer, so the client can never read one set of tokens while the indexer fills another.
-// Addresses come from the Dojo manifests in `@underware/pistols-sdk` for the `pistols` game,
-// and from `contracts.json` for every other game.
+// tokens comes from `contracts.json` in the `torii-deployment` package — the indexer's own repo,
+// installed as a git dependency pinned to a commit (root `pnpm-workspace.yaml`) — so the client
+// can never read one set of tokens while the indexer fills another. Addresses come from the Dojo
+// manifests in `@underware/pistols-sdk` for the `pistols` game, and from `contracts.json` for
+// every other game.
 //
 
 export type ProfileName = 'mainnet' | 'sepolia';
@@ -98,7 +99,7 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     chain: mainnet,
     chainName: ChainId.SN_MAIN,
     rpcUrl: 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_9',
-    toriiUrl: 'https://pistols-solitaire-mainnet.up.railway.app',
+    toriiUrl: 'https://pistols-torii-mainnet.up.railway.app',
     // derived at getProfileConfig()
     chainId: '0x0',
     contractAddresses: {},
@@ -111,7 +112,7 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     chain: sepolia,
     chainName: ChainId.SN_SEPOLIA,
     rpcUrl: 'https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_9',
-    toriiUrl: 'https://pistols-solitaire-sepolia.up.railway.app',
+    toriiUrl: 'https://pistols-torii-sepolia.up.railway.app',
     // derived at getProfileConfig()
     chainId: '0x0',
     contractAddresses: {},

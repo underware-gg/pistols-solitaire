@@ -4,8 +4,9 @@
 | ------------------------------------ | ------------------------------------------------------ |
 | [`client/`](./client/README.md)      | Next.js web client                                     |
 | [`specs/`](./specs/)                 | coding style + data flow rules — read before coding    |
-| [`contracts.json`](./contracts.json) | contracts indexed per network — single source of truth  |
-| [`torii/`](./torii/README.md)        | Torii indexer: Docker image + Railway deployment       |
+
+Torii indexer (Docker image, Railway deployment, `contracts.json`):
+[`underware-gg/torii-deployment`](https://github.com/underware-gg/torii-deployment).
 
 ## Setup
 
@@ -15,8 +16,7 @@ Requires Node >= 22 and pnpm.
 pnpm install
 ```
 
-Env: [`client/.env.example`](./client/.env.example) → `client/.env.local` (nothing required),
-[`torii/.env.example`](./torii/.env.example) → `torii/.env` (`NETWORK` required).
+Env: [`client/.env.example`](./client/.env.example) → `client/.env.local` (nothing required).
 
 ## Client
 
@@ -43,12 +43,10 @@ Details: [`client/README.md`](./client/README.md).
 
 ## Torii
 
-```bash
-cd torii
-pnpm check          # validate contracts.json
-pnpm docker:build   # build the image
-pnpm docker:run     # run it locally on :8080
-pnpm deploy         # railway up
-```
+Lives in [`underware-gg/torii-deployment`](https://github.com/underware-gg/torii-deployment). The client
+installs it as a git dependency for `contracts.json`, pinned to a commit in `pnpm-workspace.yaml`:
 
-Deploy, update and debug instructions: [`torii/README.md`](./torii/README.md).
+```bash
+# after pushing torii-deployment: bump the hash in the catalog, then
+pnpm install
+```

@@ -156,9 +156,6 @@ next-env.d.ts
 # Storybook static build
 storybook-static
 
-# Torii indexer
-torii/*.generated.toml
-torii/data/
 
 # misc
 .DS_Store

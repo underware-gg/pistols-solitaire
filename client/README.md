@@ -35,7 +35,7 @@ with every variant/size/state on one page, plus a controls-driven `Playground`.
 - `src/components/` root — generic, cross-page components (`Header.tsx`, `ControllerButton.tsx`, `NavigationCard.tsx`, `TokensPanel.tsx`); `src/components/ui/` — style primitives; `src/components/providers/` — providers.
 - `Header` is mounted in `app/layout.tsx`, so it is on every page; page `<main>`s use `flex-1`, not `min-h-screen`.
 
-Chain config in `src/dojo/`. `@/*` → `src/*`, `@/assets/*` → `public/assets/*`, `@root/*` → repo root.
+Chain config in `src/dojo/`. `@/*` → `src/*`, `@/assets/*` → `public/assets/*`.
 
 ## Starknet
 
@@ -54,8 +54,10 @@ One network at a time, via the Cartridge Controller. Mainnet by default; `NEXT_P
 | `src/components/providers/TokensProvider.tsx` | live token balances of the connected account; read via `useTokenBalances()`, `useCoinBalance()`, `useTokenIds()` |
 
 Addresses come from two places and are never typed by hand: **pistols** from the Dojo manifests in
-`@underware/pistols-sdk`, **every other game** from [`../contracts.json`](../contracts.json) — the same
-file the Torii indexer reads. To add a game's tokens, edit `contracts.json` and redeploy the indexer.
+`@underware/pistols-sdk`, **every other game** from `contracts.json` in
+[`torii-deployment`](https://github.com/underware-gg/torii-deployment) — the indexer's own repo, a git
+dependency pinned to a commit in the root `pnpm-workspace.yaml`. To add a game's tokens: edit it there,
+deploy the indexer, bump the hash here, `pnpm install`.
 
 ### Contract calls
 
@@ -87,7 +89,7 @@ Required: none — the defaults work.
 | --- | --- |
 | `NEXT_PUBLIC_PROFILE` | `mainnet` (or `sepolia`) |
 | `NEXT_PUBLIC_RPC_URL` | the profile's RPC — `https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_9` |
-| `NEXT_PUBLIC_TORII_URL` | the profile's Torii — `https://pistols-solitaire-mainnet.up.railway.app` |
+| `NEXT_PUBLIC_TORII_URL` | the profile's Torii — `https://pistols-torii-mainnet.up.railway.app` |
 | `NEXT_DIST_DIR` | `.next` (`dev:claude` sets `.next-claude`) |
 
 Styling is Tailwind 4 — all of it in `src/styles/main.css` (tokens in `@theme`, no `tailwind.config.*`). Icons come from `lucide-react`.
