@@ -96,7 +96,7 @@ catalog:
   # only ever changes what it lists on purpose: bump the hash here after the deployment repo
   # is pushed, then `pnpm install`.
   #
-  torii-deployment: github:underware-gg/torii-deployment#2346ae2
+  torii-deployment: github:underware-gg/torii-deployment#5aed180
 
   #--------------------------------
   # three.js — the 3D card table (client/src/components/pages/collection/)
