@@ -94,9 +94,10 @@ catalog:
   # pull it in as a git dependency for one file, `contracts.json`, the list of contracts the
   # indexer indexes and the client shows. Pinned to a commit hash, not a branch, so the client
   # only ever changes what it lists on purpose: bump the hash here after the deployment repo
-  # is pushed, then `pnpm install`.
+  # is pushed, then `pnpm install`. Use the full 40-char hash: pnpm resolves a short one only
+  # while that commit is still a branch tip.
   #
-  torii-deployment: github:underware-gg/torii-deployment#5aed180
+  torii-deployment: github:underware-gg/torii-deployment#74593fe4aef24c9844f49de855198f638cdccd8d
 
   #--------------------------------
   # three.js — the 3D card table (client/src/components/pages/collection/)

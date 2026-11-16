@@ -97,7 +97,7 @@ catalogs:
       specifier: ^0.185.1
       version: 0.185.1
     torii-deployment:
-      specifier: github:underware-gg/torii-deployment#5aed180
+      specifier: github:underware-gg/torii-deployment#74593fe4aef24c9844f49de855198f638cdccd8d
       version: 0.1.0
     typescript:
       specifier: ^5.9.3
@@ -184,7 +184,7 @@ importers:
         version: 0.185.1
       torii-deployment:
         specifier: 'catalog:'
-        version: https://codeload.github.com/underware-gg/torii-deployment/tar.gz/5aed1807c2f6be2e366da231ef8296a6405a1e62
+        version: https://codeload.github.com/underware-gg/torii-deployment/tar.gz/74593fe4aef24c9844f49de855198f638cdccd8d
       universal-cookie:
         specifier: ^8.1.2
         version: 8.1.2
@@ -3592,6 +3592,7 @@ packages:
   starknet@8.9.2:
     resolution: {integrity: sha512-+dp+o2w67fV6JyVOVkYeM1Ec71aORHc/JrF4VHLlfeGee0nLilooCQLE2u6hUcSGQG2x2/fvzkxYpIN+k1JBvA==}
     engines: {node: '>=22'}
+    deprecated: starknet <10 is end-of-life and no longer receives security fixes. Upgrade to starknet@10 (10.8.0 or later).
 
   stats-gl@2.4.2:
     resolution: {integrity: sha512-g5O9B0hm9CvnM36+v7SFl39T7hmAlv541tU81ME8YeSb3i1CIP5/QdDeSB3A0la0bKNHpxpwxOVRo2wFTYEosQ==}
@@ -3705,8 +3706,8 @@ packages:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
 
-  torii-deployment@https://codeload.github.com/underware-gg/torii-deployment/tar.gz/5aed1807c2f6be2e366da231ef8296a6405a1e62:
-    resolution: {gitHosted: true, integrity: sha512-h1ntQ5yqv+wvS8BVFYFo+S3rhZ62mrgQqtpPHRx/migI1vR87JrJvYGQ1eKSAyHcaGktLIK2I/58evyV/MRG6g==, tarball: https://codeload.github.com/underware-gg/torii-deployment/tar.gz/5aed1807c2f6be2e366da231ef8296a6405a1e62}
+  torii-deployment@https://codeload.github.com/underware-gg/torii-deployment/tar.gz/74593fe4aef24c9844f49de855198f638cdccd8d:
+    resolution: {gitHosted: true, integrity: sha512-yCQc3VpJVq5hLddndjEM/jWKOvHd9AE1cwYWHhQbBkvP6P8c6xY9XEx5M645RuGws0RWWgUgrSVe3Cw9CaTQrQ==, tarball: https://codeload.github.com/underware-gg/torii-deployment/tar.gz/74593fe4aef24c9844f49de855198f638cdccd8d}
     version: 0.1.0
     engines: {node: '>=20'}
 
@@ -8492,7 +8493,7 @@ snapshots:
 
   tinyspy@4.0.4: {}
 
-  torii-deployment@https://codeload.github.com/underware-gg/torii-deployment/tar.gz/5aed1807c2f6be2e366da231ef8296a6405a1e62: {}
+  torii-deployment@https://codeload.github.com/underware-gg/torii-deployment/tar.gz/74593fe4aef24c9844f49de855198f638cdccd8d: {}
 
   tr46@0.0.3: {}
 
