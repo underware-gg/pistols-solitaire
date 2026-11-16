@@ -1,13 +1,13 @@
 'use client';
 
-import { useAccount } from '@starknet-react/core';
+import { useAccount, useProvider, useSendTransaction } from '@starknet-start/react';
 import { useMutation } from '@tanstack/react-query';
 import { shortAddress } from '@underware/pistols-sdk/utils';
 import { toast } from 'sonner';
 import {
-  type AccountInterface,
   type Call,
   CallData,
+  type ProviderInterface,
   type RawArgs,
   TransactionFinalityStatus,
 } from 'starknet';
@@ -46,7 +46,7 @@ type ContractMutationProps<TArgs> = {
    */
   before?: (
     variables: TArgs,
-    context: { account: AccountInterface },
+    context: { address: string; provider: ProviderInterface },
   ) => Promise<(Call | undefined)[]> | (Call | undefined)[];
   /**
    * What is stale now that this landed — the per-entrypoint hook's own business, since it is the
@@ -63,11 +63,12 @@ export type ContractMutationResult = {
 //
 // One write call on one of the world's contracts: send it, wait for it, tell the player.
 //
-// **Why this is not `useSendTransaction`.** That hook resolves the moment the wallet accepts the
+// **Why `useSendTransaction` is not the mutation.** It resolves the moment the wallet accepts the
 // transaction, not when the chain executes it — so it can say "sent", never "claimed", and a toast
-// driven by it would report success on a transaction that goes on to revert. So the mutation calls
-// `account.execute` and then `waitForTransaction`, and a revert is thrown like any other failure.
-// This is a mutation over an SDK promise with no hook of its own, not a cache over a chain hook
+// driven by it would report success on a transaction that goes on to revert. So the mutation sends
+// through it (`sendAsync`, the one way to reach the wallet: `useAccount` no longer hands out an
+// account) and then `waitForTransaction` on the provider, and a revert is thrown like any other
+// failure. This is a mutation over two SDK promises, not a cache over a chain hook
 // (specs/NEXTJS_DATA_FLOW.md §0).
 //
 // **Calldata comes from the ABI, not by hand.** `new CallData(abi).compile()` needs no provider and
@@ -92,7 +93,9 @@ export function useContractMutation<TArgs = void>({
   before,
   onSuccess,
 }: ContractMutationProps<TArgs>) {
-  const { account } = useAccount();
+  const { address: accountAddress } = useAccount();
+  const { provider } = useProvider();
+  const { sendAsync } = useSendTransaction({});
   const label = `${contract}::${entrypoint}()`;
 
   return useMutation<ContractMutationResult, Error, TArgs>({
@@ -124,7 +127,7 @@ export function useContractMutation<TArgs = void>({
 
       pending();
       try {
-        if (!account) throw new Error(`${label}: no account connected`);
+        if (!accountAddress) throw new Error(`${label}: no account connected`);
 
         const { address, abi } = getPistolsContract(contract);
         const call: Call = {
@@ -132,14 +135,15 @@ export function useContractMutation<TArgs = void>({
           entrypoint,
           calldata: args ? new CallData(abi).compile(entrypoint, args(variables)) : [],
         };
-        const calls = [...((await before?.(variables, { account })) ?? []), call].filter(
-          (each): each is Call => Boolean(each),
-        );
+        const calls = [
+          ...((await before?.(variables, { address: accountAddress, provider })) ?? []),
+          call,
+        ].filter((each): each is Call => Boolean(each));
 
-        const { transaction_hash: transactionHash } = await account.execute(calls);
+        const { transaction_hash: transactionHash } = await sendAsync(calls);
         pending(transactionHash);
 
-        const receipt = await account.waitForTransaction(transactionHash, {
+        const receipt = await provider.waitForTransaction(transactionHash, {
           retryInterval: 500,
           successStates: SUCCESS_STATES,
         });

@@ -4,17 +4,17 @@ How data is fetched, mutated, and shared between server and client in `client/`.
 
 Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/NEXTJS_DATA_FLOW.md`), which adapted it from the popsy-top controller standard. Divergences are marked **[diverges]**; everything else should be kept in sync with upstream.
 
-**Only the data-flow pattern comes from ec-dapp — not its chain.** ec-dapp is Ethereum/EVM; **this project is Starknet only**. Wherever upstream says wagmi/viem/EVM, read `@starknet-react/core` + Cartridge Controller (section 0).
+**Only the data-flow pattern comes from ec-dapp — not its chain.** ec-dapp is Ethereum/EVM; **this project is Starknet only**. Wherever upstream says wagmi/viem/EVM, read `@starknet-start/react` + Cartridge Controller (section 0).
 
 **Scope:** every non-chain query and mutation follows this document — API proxies, metadata/IPFS fetches, Torii reads that go through our own routes, and anything added later. Adopt it every time data crosses the server/client boundary, even for one-off needs.
 
 ## 0. Chain-layer exception
 
-**[diverges]** Upstream carves out wagmi; here the carve-out is the **Starknet/Dojo layer**. Starknet is wired up (`@starknet-react/core` + the Cartridge Controller); the Dojo SDK is not yet.
+**[diverges]** Upstream carves out wagmi; here the carve-out is the **Starknet/Dojo layer**. Starknet is wired up (`@starknet-start/react` + the Cartridge Controller); the Dojo SDK is not yet.
 
 This section is the *rule*; **[`CHAIN.md`](./CHAIN.md) is the spec for what lives inside the carve-out** — profiles, addresses, providers, contract calls and the SDK. Read it before any chain read or write.
 
-**Chain hooks are used directly, never wrapped.** `@starknet-react/core` runs on TanStack Query internally and the Dojo SDK keeps its own store — do not wrap `useAccount`/`useReadContract`/`useSendTransaction`/Dojo entity subscriptions in another `useQuery`/`useMutation` layer or in the hooks below. Composing several of them into one hook is fine (`hooks/use-controller.ts` does exactly that); adding a cache on top of them is not.
+**Chain hooks are used directly, never wrapped.** `@starknet-start/react` runs on TanStack Query internally and the Dojo SDK keeps its own store — do not wrap `useAccount`/`useReadContract`/`useSendTransaction`/Dojo entity subscriptions in another `useQuery`/`useMutation` layer or in the hooks below. Composing several of them into one hook is fine (`hooks/use-controller.ts` does exactly that); adding a cache on top of them is not.
 
 **One shared `QueryClient`** backs both the chain layer and the app's own queries. It is created in `src/components/providers/providers.tsx` and handed to `StarknetConfig`, which mounts the `QueryClientProvider` itself — so there is exactly one provider and one cache.
 
@@ -32,10 +32,10 @@ The one thing react-query legitimately holds for the chain layer is a **one-shot
 **Contract calls live in `src/hooks/contracts/<contract>.ts`** and follow the carve-out, not sections 1 and 2 — no API route, no server action. Rules, with the full rationale in `CHAIN.md` §4:
 
 - **Reads** are `useReadContract` used bare, through `useContractRead<T>` (which resolves the contract and carries the return type — it adds no cache of its own). ABIs come from the SDK manifest at runtime; never vendor an `as const` copy.
-- **Writes** are `useContractMutation`, which is `account.execute` + `waitForTransaction`, *not* `useSendTransaction` — that hook resolves when the wallet accepts, so it cannot tell a landed transaction from one that reverted. This is a mutation over an SDK promise with no hook, which the carve-out allows; it is not a cache over a chain hook.
+- **Writes** are `useContractMutation`, which is `useSendTransaction().sendAsync` + the provider's `waitForTransaction`, never `useSendTransaction` alone — that hook resolves when the wallet accepts, so it cannot tell a landed transaction from one that reverted. This is a mutation over an SDK promise with no hook, which the carve-out allows; it is not a cache over a chain hook.
 - **Calldata is compiled from the ABI** (`new CallData(abi).compile`), never assembled by hand.
 - **Toasts** are the mutation's own, one per call, morphing `loading` → `success`/`error` at one id — see §6 for the two divergences from `useActionMutation`.
-- **Invalidation** belongs to the entrypoint's hook (`useInvalidateContractReads`), not the component: `useQueryInvalidate` cannot match starknet-react's single-object query keys.
+- **Invalidation** belongs to the entrypoint's hook (`useInvalidateContractReads`), not the component: `useQueryInvalidate` cannot match starknet-start's single-object query keys.
 
 Everything that is not the chain goes through sections 1 and 2.
 

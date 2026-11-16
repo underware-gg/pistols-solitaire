@@ -1,4 +1,4 @@
-import { type Chain, mainnet, sepolia } from '@starknet-react/chains';
+import { type Chain, mainnet, sepolia } from '@starknet-start/chains';
 import {
   ChainId,
   getAdminAddress,
@@ -78,7 +78,7 @@ export type ProfileConfig = {
   profileName: ProfileName;
   networkId: NetworkId;
   namespace: string;
-  chain: Chain; // @starknet-react/chains chain for StarknetConfig
+  chain: Chain; // @starknet-start/chains chain for StarknetConfig
   chainName: ChainId; // chain name, and the section key into contracts.json
   rpcUrl: string;
   toriiUrl: string;
@@ -98,7 +98,7 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     namespace: NAMESPACE,
     chain: mainnet,
     chainName: ChainId.SN_MAIN,
-    rpcUrl: 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_9',
+    rpcUrl: 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_10',
     toriiUrl: 'https://pistols-torii-mainnet.up.railway.app',
     // derived at getProfileConfig()
     chainId: '0x0',
@@ -111,7 +111,7 @@ const profileConfigs: Record<ProfileName, ProfileConfig> = {
     namespace: NAMESPACE,
     chain: sepolia,
     chainName: ChainId.SN_SEPOLIA,
-    rpcUrl: 'https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_9',
+    rpcUrl: 'https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10',
     toriiUrl: 'https://pistols-torii-sepolia.up.railway.app',
     // derived at getProfileConfig()
     chainId: '0x0',

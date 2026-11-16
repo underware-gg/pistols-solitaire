@@ -25,6 +25,10 @@ allowBuilds:
   # `postinstall` phones home for a version check.
   "@reown/appkit": false
 
+# One starknet.js for the whole tree — see the catalog's starknet section.
+overrides:
+  starknet: 10.8.0
+
 catalog:
   #--------------------------------
   # next.js client
@@ -60,24 +64,34 @@ catalog:
   #--------------------------------
   # starknet / cartridge controller
   #
-  # Major versions match /Users/roger/Dev/Dojo/controller/examples/minimal
-  # (starknet 8, starknet-react 5); the Controller tracks the latest 0.13.x.
+  # starknet.js 10 for RPC spec 0.10.x (0.10.3 needs >= 10.1.0, 0.10.4 needs >= 10.8.0). Dojo 2.0
+  # pins exactly 10.0.2, so `overrides:` below forces one copy across the tree.
   #
-  starknet: ^8.9.2
-  "@starknet-react/core": ^5.0.3
+  # `@starknet-start/*` replaced `@starknet-react/*`: wallets are wallet-standard objects discovered
+  # through get-starknet, which stays on 5.0.0 because `@cartridge/connector` pins it.
+  #
+  starknet: 10.8.0
+  "@starknet-start/react": ^1.0.8
+  "@starknet-start/chains": ^1.0.7
+  "@starknet-start/providers": ^1.0.7
+  "@starknet-start/explorers": ^1.0.7
+  "@starknet-io/get-starknet-core": 5.0.0
+  "@starknet-io/get-starknet-modal": 5.0.0
+  "@starknet-io/get-starknet-wallet-standard": 5.0.0
+  "@cartridge/controller": 0.14.2
+  "@cartridge/connector": 0.14.2
+  # Not ours: `@underware/pistols-sdk/pistols/config` imports `mainnet`/`sepolia` from it. Plain
+  # chain data with no peers; drop it once the SDK moves to `@starknet-start/chains`.
   "@starknet-react/chains": ^5.0.3
-  "@cartridge/controller": ^0.13.16
-  "@cartridge/connector": ^0.13.16
 
   #--------------------------------
   # dojo.js
   #
-  # Same versions as /Users/roger/Dev/Realms/LORE/packages/client-sn, the
-  # reference for our profile/Torii setup. `torii-client` is a thin re-export of
-  # `@dojoengine/torii-wasm` — see next.config.ts for the Turbopack wiring.
+  # `torii-client` is a thin re-export of `@dojoengine/torii-wasm` — see next.config.ts for the
+  # Turbopack wiring.
   #
-  "@dojoengine/core": ^1.8.8
-  "@dojoengine/torii-client": ^1.8.2
+  "@dojoengine/core": 2.0.0
+  "@dojoengine/torii-client": 1.8.2
 
   #--------------------------------
   # pistols

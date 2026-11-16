@@ -149,12 +149,12 @@ export function usePurchase() {
     contract: CONTRACT,
     entrypoint: 'purchase',
     args: ({ packType, quantity = 1 }) => [packTypeEnum(packType) as CairoCustomEnum, quantity],
-    before: async ({ packType }, { account }) => {
-      const fee = await callPistolsContract<bigint>(account, CONTRACT, 'calc_mint_fee', [
-        account.address,
+    before: async ({ packType }, { address, provider }) => {
+      const fee = await callPistolsContract<bigint>(provider, CONTRACT, 'calc_mint_fee', [
+        address,
         packTypeEnum(packType) as CairoCustomEnum,
       ]);
-      return [approveLordsCall(fee), vrfRequestCall(CONTRACT, account.address)];
+      return [approveLordsCall(fee), vrfRequestCall(CONTRACT, address)];
     },
     onSuccess: () => invalidateContractReads(CONTRACT),
   });
@@ -193,12 +193,12 @@ export function usePurchaseRandom() {
   return useContractMutation({
     contract: CONTRACT,
     entrypoint: 'purchase_random',
-    before: async (_variables, { account }) => {
-      const fee = await callPistolsContract<bigint>(account, CONTRACT, 'calc_mint_fee', [
-        account.address,
+    before: async (_variables, { address, provider }) => {
+      const fee = await callPistolsContract<bigint>(provider, CONTRACT, 'calc_mint_fee', [
+        address,
         packTypeEnum(PURCHASE_RANDOM_PACK_TYPE) as CairoCustomEnum,
       ]);
-      return [approveLordsCall(fee), vrfRequestCall(CONTRACT, account.address)];
+      return [approveLordsCall(fee), vrfRequestCall(CONTRACT, address)];
     },
     onSuccess: () => invalidateContractReads(CONTRACT),
   });
@@ -238,7 +238,7 @@ export function useAirdrop() {
       new CairoOption<CairoCustomEnum>(CairoOptionVariant.None),
       quantity,
     ],
-    before: (_variables, { account }) => [vrfRequestCall(CONTRACT, account.address)],
+    before: (_variables, { address }) => [vrfRequestCall(CONTRACT, address)],
     onSuccess: () => invalidateContractReads(CONTRACT),
   });
 }

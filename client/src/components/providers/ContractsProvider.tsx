@@ -24,7 +24,7 @@ import { getToriiClient } from '@/dojo/torii';
 // Nothing in here is a player decision. It is not react-query either, for the same reason
 // `TokensProvider` is not: the chain layer is used bare (`specs/NEXTJS_DATA_FLOW.md` §0), and the
 // one thing we do want — surviving a reload — is a dozen lines of `localStorage` here versus
-// persisting a QueryClient shared with every starknet-react connector query.
+// persisting a QueryClient shared with every starknet-start connector query.
 //
 // The cache is keyed by profile *and* by the set of addresses asked for, so adding a contract to
 // `contracts.json` invalidates it on its own. A day's TTL is the only other escape hatch: the

@@ -2,7 +2,7 @@
 
 Everything that talks to Starknet, Torii or the Pistols world. Read this before any read, write or address.
 
-**The chain layer is used bare** — `@starknet-react/core` hooks directly, never wrapped in another `useQuery`/`useMutation` (`NEXTJS_DATA_FLOW.md` §0). Composing several bare hooks into one is fine; adding a cache over them is not.
+**The chain layer is used bare** — `@starknet-start/react` hooks directly, never wrapped in another `useQuery`/`useMutation` (`NEXTJS_DATA_FLOW.md` §0). Composing several bare hooks into one is fine; adding a cache over them is not.
 
 Ported from `/Users/roger/Dev/Realms/LORE/packages/client-sn/src/dojo/`, the reference for this layer.
 
@@ -13,7 +13,7 @@ One network at a time, selected by profile.
 - **`profiles.ts`** — the profile table; only `mainnet` and `sepolia`. `getProfileConfig()` derives `chainId`, `contractAddresses` and `tokens`. **Every field is a single value** — LORE splits each into `{ starknet, appchain }` because it bridges to an appchain; never reintroduce that shape.
 - **A profile carries no `manifest`.** It carries `networkId`, the key the SDK's `getManifest({ networkId })` takes, so whatever needs a manifest or an ABI asks the SDK. Don't add the field back.
 - **`config.ts`** — `PROFILE`. Everything chain-dependent imports it, and **nothing else reads `process.env` for chain config**. Vars and defaults are in `client/.env.example`.
-- **`explorer.ts`** — block-explorer URLs, from `@starknet-react/core`'s own `VoyagerExplorer` (it reads `chain.explorers.voyager`, so the profile's chain is the whole config). **Never hand-write a `voyager.online` URL**, and don't reach for the `useExplorer` hook — it ties every link to the *connected* chain, and this has to link to a network the app isn't running on. **Anything importing it is a client component**: `@starknet-react/core` ships as one module that calls `createContext` at import time, so a server component that touches it 500s.
+- **`explorer.ts`** — block-explorer URLs, from `@starknet-start/explorers`' `VoyagerExplorer` (it reads `chain.explorers.voyager`, so the profile's chain is the whole config). **Never hand-write a `voyager.online` URL**, and don't reach for the `useExplorer` hook — it ties every link to the *connected* chain, and this has to link to a network the app isn't running on. **`@starknet-start/react` is client-only** (it calls `createContext` at import time, so a server component that touches it 500s); the explorers package is not, so keep `explorer.ts` off the react package.
 - **`torii.ts`** — one lazily-created `ToriiClient`. **Keep the `import()` dynamic inside the factory** (and the type import `type`-only): `@dojoengine/torii-client` re-exports `torii-wasm`, which instantiates a 2.7MB WASM binary at import time, so a static import ships it in the first page chunk.
 
 ## 2. Contract addresses — two sources, never hand-typed
@@ -32,12 +32,16 @@ One network at a time, selected by profile.
 
 ## 3. Providers (`client/src/components/providers/`)
 
-Cartridge Controller; connector versions match `/Users/roger/Dev/Dojo/controller/examples/minimal` (`starknet` 8, `@starknet-react/*` 5, Controller `0.13.x`), all in the root `catalog:`.
+Cartridge Controller over `@starknet-start/*` and starknet.js 10, all in the root `catalog:`.
 
-- **`StarknetProvider.tsx`** — the `ControllerConnector` is built **once at module scope**: it reuses `window.starknet_controller` and warns if constructed twice. Every `window` access inside it is guarded, so this SSRs fine and needs no `ssr: false` wrapper.
+- **starknet.js is pinned to one copy** by the workspace `overrides:` — Dojo 2 pins `10.0.2` exactly, and RPC spec 0.10.4 needs `>= 10.8`. The RPC must serve spec **0.10.x**: starknet.js 10 talks the 0.10 channel, so a `v0_9` URL is the wrong spec, not just an old one.
+- **get-starknet stays on `5.0.0`** although 6 is out — `@cartridge/connector` pins it.
+- **`@starknet-react/chains` is still installed, and not for us**: the SDK's `/pistols/config` imports `mainnet`/`sepolia` from it. Our code imports `@starknet-start/chains`.
+
+- **`StarknetProvider.tsx`** — `StarknetConfig` has **no `connectors` prop and its `autoConnect` does nothing**. Constructing the `ControllerConnector` registers it as a wallet-standard wallet named `Controller`, and `useController` picks it out of `useConnect().connectors`. It is built once, **on the client, in the provider's mount effect** (`getControllerConnector()`): its registration is a one-shot event with no `app-ready` handshake, so it must fire after get-starknet's store is listening — which it is from import time, so any effect is late enough. It reuses `window.starknet_controller` and warns if constructed twice. **The provider owns the discovery store** (`createStore()` → `store=`): get-starknet scans `window.starknet_*` only once, when a store is created, so anything injected later is never listed unless `refreshInjectedWallets()` scans again — the mount effect does (plus `load` and a few timers), and so does Connect when the Controller is still missing.
 - **`providers.tsx`** — creates the one `QueryClient` and hands it to `StarknetConfig`, which mounts the provider itself. One cache, shared with the app's own queries.
 - `preset: 'pistols'` supplies the theme and published policies; no policies of our own until this game has a world.
-- **`ControllerToaster` is deliberately not mounted** (optional, and importing package CSS needs a reason). **`ControllerOptions.tokens` is not set** — in `0.13.x` its `Token` type is a fixed union, not arbitrary addresses; `toriiUrl` is what surfaces them.
+- **`ControllerToaster` is deliberately not mounted** (optional, and importing package CSS needs a reason). **`ControllerOptions.tokens` is not set** — in `0.13.x` its `Token` type (unchecked since 0.14) is a fixed union, not arbitrary addresses; `toriiUrl` is what surfaces them.
 
 ### `TokensProvider.tsx` — the app's one Torii subscription
 
@@ -59,15 +63,15 @@ Each token contract's **collection** metadata (Torii's `token_id IS NULL` row), 
 
 ### `hooks/use-controller.ts` — the only connection API
 
-Composes bare `@starknet-react/core` hooks and never wraps them in another cache.
+Composes bare `@starknet-start/react` hooks and never wraps them in another cache.
 
-- **`isConnecting` is ours to detect — starknet-react does not report it.** In the installed version `useAccount().status` is only `connected` | `disconnected` and `isConnecting`/`isReconnecting` are assigned `false` at every site, so a page load reads as *logged out* until the keychain answers and the app would flash Connect at a returning player. The hook asks what `autoConnect`'s own effect asks: is `localStorage.lastUsedConnector` ours, and is the connector `ready()`. The in-flight `undefined` counts as connecting. Consequence: if `ready()` says yes and the connect never lands, it stays connecting.
+- **Reconnecting is ours — `@starknet-start/react` never reconnects** and `useAccount()` reports `disconnected` until a connect lands. `useControllerAutoConnect` (mounted once in `StarknetProvider`) remembers the wallet in `ps.lastWallet` on connect — cleared on disconnect, unlike get-starknet's own key — and on load **probes the Controller silently** (`standard:connect` with `silent: true`, which never opens the modal) before connecting. The same probe is `isConnecting`: the in-flight `undefined` counts as connecting, so a returning player never sees Connect flash. Consequence: if the probe says yes and the connect never lands, it stays connecting. Disconnect must reset the cached probe, or the header spins forever after logout.
 - Everything that shows connection state hangs off that flag — `ControllerButton`'s `Spinner` sits in the account's own spot, at the size of the type it replaces so the header doesn't reflow.
 - **`useControllerLookup` is the reverse direction**, and the file's one thing that isn't about *our* connection: a typed `0x…` or Controller username → an address, for a field naming someone else (a recipient). It lives here because the Cartridge lookup is the same kind of one-shot SDK promise `username` is. **Two traps, both in its doc comment**: `/lookup` matches a username exactly, so the query is lowercased, and no address is reported while the lookup is settling — the previous one is still cached and acting on it would mint to the wrong account.
 
 ## 4. Contract calls (`client/src/hooks/contracts/`)
 
-**The SDK's *call* layer is deliberately not used** — no `createSystemCalls`, no `useDojoContractCalls`, no `@dojoengine/sdk` context. We take its **ABIs** and pure helpers and drive the calls with `@starknet-react/core` + starknet.js (`NEXTJS_DATA_FLOW.md` §0).
+**The SDK's *call* layer is deliberately not used** — no `createSystemCalls`, no `useDojoContractCalls`, no `@dojoengine/sdk` context. We take its **ABIs** and pure helpers and drive the calls with `@starknet-start/react` + starknet.js (`NEXTJS_DATA_FLOW.md` §0).
 
 ```
 dojo/contracts.ts          getPistolsContract(name) → { address, abi }; callPistolsContract() (one-shot)
@@ -85,11 +89,11 @@ hooks/contracts/
 - **ABIs come from the SDK manifest at runtime, never vendored** — `getContractByName(getManifest({ networkId }), NAMESPACE, name)`, so address and ABI can't describe different contracts. **Cache the result for reference identity**: `useReadContract` memoizes its starknet.js `Contract` on `[abi, address]`, so a fresh object per render rebuilds it every render.
   - The price is no type inference (abi-wan-kanabi only infers from an `as const` literal). `useContractRead<T>` carries the return type and holds the app's one `as any`. **Don't hand-copy ABI slices to get inference back** — a second copy of the truth that drifts on the next redeploy.
 - **Reads are `useReadContract`, used bare.** `parseResponse: true`, so a struct arrives as an object, an enum as a `CairoCustomEnum` (what the SDK's `convert_*` helpers expect) and an `Option` as a `CairoOption` (`.isSome()`, so "none" is not a zero). **No wallet needed.** `watch` is off.
-- **Writes are NOT `useSendTransaction`** — it resolves when the wallet *accepts*, not when the chain *executes*, so a toast on it can report success on a transaction that reverts. `useContractMutation` does `account.execute` then `waitForTransaction` (`PRE_CONFIRMED` counts, seconds ahead of `ACCEPTED_ON_L2`) and throws the revert reason.
+- **Writes are not *just* `useSendTransaction`** — it resolves when the wallet *accepts*, not when the chain *executes*, so a toast on it can report success on a transaction that reverts. **`useAccount` no longer hands out an account**, so `useContractMutation` sends through `useSendTransaction().sendAsync` and then `useProvider().provider.waitForTransaction`; `before` gets `{ address, provider }` (`PRE_CONFIRMED` counts, seconds ahead of `ACCEPTED_ON_L2`) and throws the revert reason.
 - **One entrypoint is not always one call**: an ERC-20 approval or a VRF request rides in front via `before`, in the **same transaction**, so the toast, receipt and revert stay one thing. `before` is async because a fee has to be asked for first — through `callPistolsContract`, deliberately **not** the cached read hook, since a stale fee is an approval for the wrong amount. `undefined` entries are dropped.
 - **Calldata is compiled from the ABI, never hand-assembled** — `new CallData(abi).compile(...)` knows every Cairo type, so a struct or enum argument costs an `args` mapper and nothing else (enums via the SDK's `makeCustomEnum`). **`args` is optional, and omitting it skips the ABI lookup** — the only reason `purchase_random` is callable at all.
 - **Toasts: one per call, `loading` → `success`/`error` at the same id**, labelled `contract::entrypoint()` with a live `ElapsedTimeBadge` and the tx hash. Two divergences from `useActionMutation`: the lifecycle lives **inside `mutationFn`** (the hash only exists halfway through, and the toast must survive the callbacks react-query skips on unmount), and it **morphs in place** rather than dismiss-then-open (hence `handleApiError`'s optional `toastId`). Success *is* shown here — a transaction with no visible UI change still has to say it landed. Full rules: `NEXTJS_DATA_FLOW.md` §6.
-- **Invalidation is the entrypoint hook's job**, not the component's: only it knows which views its write moved (`onSuccess: () => invalidateContractReads(CONTRACT)`). **`useQueryInvalidate` cannot reach these** — starknet-react keys a read as a single object, so matching a key segment never hits one.
+- **Invalidation is the entrypoint hook's job**, not the component's: only it knows which views its write moved (`onSuccess: () => invalidateContractReads(CONTRACT)`). **`useQueryInvalidate` cannot reach these** — starknet-start keys a read as a single object, so matching a key segment never hits one.
 - **Token balances come from Torii**, not from here. A write mints; `TokensProvider`'s subscription notices. Never poll a balance through a contract hook.
   - **A write whose result the player is waiting to *see* is a `hooks/use-mint-flow.ts` flow**, not a mutation a component reads `isPending` off: the receipt lands seconds before the indexer does, so the flow adds an `indexing` phase that ends when the minted token turns up in the hand. Rules and traps: `DECKS.md` §7.
 

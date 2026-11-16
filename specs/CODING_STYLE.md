@@ -4,7 +4,7 @@ Binding rules for all code in this repo. Referenced from `CLAUDE.md`.
 
 Ported from `ec-dapp` (`/Users/roger/Dev/CC/ec-dapp/specs/CODING_STYLE.md`), the upstream reference. Keep in sync; **[diverges]** marks a deliberate difference — don't "fix" those back.
 
-**Only the style comes from ec-dapp.** It is an EVM app; **this project is Starknet only** (Cairo, `@starknet-react/core`, Cartridge Controller, Torii). Never carry an EVM dependency, address type, ABI convention or wallet library across. Where an upstream rule names an EVM tool, the Starknet analogue applies.
+**Only the style comes from ec-dapp.** It is an EVM app; **this project is Starknet only** (Cairo, `@starknet-start/react`, Cartridge Controller, Torii). Never carry an EVM dependency, address type, ABI convention or wallet library across. Where an upstream rule names an EVM tool, the Starknet analogue applies.
 
 ## Formatting
 
@@ -118,6 +118,6 @@ The **wallet-free preview surface for `components/ui/`** — a primitive's whole
 
 - **Prefer native platform resources over wrapper libraries** — `<audio>` over player libs, `matchMedia` over device-detect libs, `JSON.stringify` over prettifiers, `document.cookie`/`cookies()` over cookie libs.
 - **Data flow follows `NEXTJS_DATA_FLOW.md`**: non-chain reads are API query routes + one react-query hook each; mutations are server actions + per-action hooks over `useActionMutation`. No `useEffect` fetching.
-- **[diverges] The chain layer is Starknet and is used bare** — `@starknet-react/core` hooks directly, never wrapped in another `useQuery`/`useMutation` (`NEXTJS_DATA_FLOW.md` §0). Chain config stays in `StarknetProvider`, addresses in one registry, and every chain-scale integer is a native `bigint` (never `bn.js`/`BigNumber`).
-- **Wallet connection is the Cartridge Controller only.** One `ControllerConnector`, built once at module scope in `StarknetProvider`; components go through `useController()` and never touch the connector.
+- **[diverges] The chain layer is Starknet and is used bare** — `@starknet-start/react` hooks directly, never wrapped in another `useQuery`/`useMutation` (`NEXTJS_DATA_FLOW.md` §0). Chain config stays in `StarknetProvider`, addresses in one registry, and every chain-scale integer is a native `bigint` (never `bn.js`/`BigNumber`).
+- **Wallet connection is the Cartridge Controller only.** One `ControllerConnector`, built once on the client by `StarknetProvider`; components go through `useController()` and never touch the connector.
 - **Shared dependency versions live in `catalog:`** in `pnpm-workspace.yaml`. Bump the catalog, never a package manifest.

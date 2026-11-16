@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Copy, ExternalLink, Layers } from 'lucide-react';
-import type { Chain } from '@starknet-react/chains';
+import type { Chain } from '@starknet-start/chains';
 import { bigintToAddress, shortAddress } from '@underware/pistols-sdk/utils';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -29,9 +29,7 @@ import { cn } from '@/lib/cn';
 // dimmed — they are history in that file and nothing else in the app surfaces them.
 //
 // Reads no chain and no wallet — `contracts.json` is a build-time import and every value here
-// is static. It is a client component only because `@starknet-react/core` calls `createContext`
-// at import time, so `dojo/explorer.ts` cannot be reached from a server component; there is no
-// state or effect in here to justify the boundary on its own.
+// is static. It is a client component only for the copy button's state.
 //
 
 export function ContractsPage({ className }: { className?: string }) {

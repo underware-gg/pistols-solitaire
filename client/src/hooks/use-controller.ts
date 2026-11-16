@@ -1,69 +1,144 @@
 'use client';
 
-import { useAccount, useConnect, useDisconnect } from '@starknet-react/core';
-import { useQuery } from '@tanstack/react-query';
 import { type ProfileContextTypeVariant, lookupUsernames } from '@cartridge/controller';
+import {
+  StandardConnect,
+  StarknetWalletApi,
+  type WalletWithStarknetFeatures,
+} from '@starknet-io/get-starknet-wallet-standard/features';
+import { useAccount, useConnect, useDisconnect } from '@starknet-start/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { bigintToAddress, isPositiveBigint } from '@underware/pistols-sdk/utils';
 import { useEffect, useState } from 'react';
-import { controllerConnector } from '@/components/providers/StarknetProvider';
+import {
+  getControllerConnector,
+  refreshInjectedWallets,
+} from '@/components/providers/StarknetProvider';
 
 //
 // Single entry point for Controller connection state and actions.
 //
-// `@starknet-react/core` hooks are used bare here and composed — never wrapped in another
-// query layer (specs/NEXTJS_DATA_FLOW.md §0). The username is the one exception worth
-// noting: it is a one-shot SDK promise rather than a hook, so react-query holds it instead
-// of a `useEffect`.
+// `@starknet-start/react` hooks are used bare here and composed — never wrapped in another
+// query layer (specs/NEXTJS_DATA_FLOW.md §0). The username and the reconnect probe are the
+// exceptions worth noting: each is a one-shot SDK promise rather than a hook, so react-query
+// holds it instead of a `useEffect`.
 //
+
+/** The Controller's name as a wallet-standard wallet — what it registers itself under. */
+const CONTROLLER_WALLET_NAME = 'Controller';
+
+const findController = (connectors: WalletWithStarknetFeatures[]) =>
+  connectors.find(wallet => wallet.name === CONTROLLER_WALLET_NAME);
+
+//
+// Did this player leave connected? Set on connect, cleared on disconnect — get-starknet's own
+// last-wallet key is never cleared, so it can't say "they logged out". `lastUsedConnector` is the
+// key @starknet-react used, read once so a returning player is not logged out by the upgrade.
+//
+const LAST_WALLET_KEY = 'ps.lastWallet';
+const LEGACY_LAST_WALLET_KEY = 'lastUsedConnector';
+
+const readLastWallet = (): string | null => {
+  try {
+    return localStorage.getItem(LAST_WALLET_KEY) ?? localStorage.getItem(LEGACY_LAST_WALLET_KEY);
+  } catch {
+    return null;
+  }
+};
+const writeLastWallet = (walletId: string | null) => {
+  try {
+    localStorage.removeItem(LEGACY_LAST_WALLET_KEY);
+    if (walletId) localStorage.setItem(LAST_WALLET_KEY, walletId);
+    else localStorage.removeItem(LAST_WALLET_KEY);
+  } catch {}
+};
+
+//
+// Is a reconnect on its way? `@starknet-start/react` does not reconnect at all, and `useAccount()`
+// reports `disconnected` until a connect lands — so without this every page load tells a returning
+// player they are logged out and their table owns nothing, then contradicts itself a moment later.
+//
+// The answer is a **silent** probe of the Controller (`standard:connect` with `silent: true` asks the
+// keychain for a session and never opens its modal), and only if the player left connected. `true`
+// means `useControllerAutoConnect` is about to connect; `undefined` is the moment before we know —
+// including before the Controller has registered — which counts as connecting too, because guessing
+// "connected soon" is the guess that does not flash. Consequence: if the probe says yes and the
+// connect never lands, it stays connecting.
+//
+const useReconnectProbe = (controller: WalletWithStarknetFeatures | undefined) => {
+  const lastWallet = typeof window === 'undefined' ? null : readLastWallet();
+  const wasConnected = lastWallet === 'controller';
+  return useQuery({
+    queryKey: ['controller_reconnecting', Boolean(controller)],
+    queryFn: async () => {
+      if (!wasConnected || !controller) return false;
+      const { accounts } = await controller.features[StandardConnect].connect({ silent: true });
+      return accounts.length > 0;
+    },
+    enabled: !wasConnected || Boolean(controller),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+};
+
+//
+// Mounted once, inside `StarknetConfig` (`ControllerAutoConnect`): remembers a connection, and
+// reconnects the last one once the probe says the keychain still holds its session.
+//
+export function useControllerAutoConnect() {
+  const { connector, isConnected } = useAccount();
+  const { connectors, connectAsync } = useConnect();
+  const controller = findController(connectors);
+  const { data: canReconnect } = useReconnectProbe(controller);
+
+  useEffect(() => {
+    if (isConnected && connector) writeLastWallet(connector.features[StarknetWalletApi].id);
+  }, [isConnected, connector]);
+
+  useEffect(() => {
+    if (!canReconnect || !controller || isConnected) return;
+    connectAsync({ connector: controller }).catch(error =>
+      console.warn('useControllerAutoConnect(): not reconnected', error),
+    );
+    // Keyed on the probe alone: `canReconnect` turns true at most once per page load.
+  }, [canReconnect, controller]);
+}
+
 export function useController() {
-  const { account, address, status } = useAccount();
-  const { connect, isPending: isConnectPending } = useConnect();
+  const { address, isConnected = false } = useAccount();
+  const { connect, connectors, isPending: isConnectPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const queryClient = useQueryClient();
+  const controller = findController(connectors);
+  const { data: reconnecting } = useReconnectProbe(controller);
 
   const { data: username } = useQuery({
     queryKey: ['controller_username', address],
     // `username()` resolves to undefined before the keychain is ready — react-query
     // requires a non-undefined result, so normalize to null.
-    queryFn: async () => (await controllerConnector.username()) ?? null,
+    queryFn: async () => (await getControllerConnector()?.username()) ?? null,
     enabled: Boolean(address),
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  //
-  // Is a reconnect on its way? `StarknetConfig autoConnect` reconnects the last used Controller in a
-  // mount effect, and **this version of starknet-react never reports that**: `useAccount().status`
-  // is only `connected` | `disconnected`, so every page load reads as *disconnected* for as long as
-  // the keychain takes to answer. Left at that, the app tells a returning player they are logged out
-  // and their table owns nothing, then contradicts itself a moment later.
-  //
-  // So ask the same two questions their effect asks, in the same order: is the last used connector
-  // ours, and is it ready? A `true` here means a connect is already in flight on our behalf.
-  // `undefined` is the moment before we know, which is treated as connecting too — the answer is
-  // local (localStorage plus a keychain probe) and arrives immediately, and guessing "connected
-  // soon" is the guess that does not flash.
-  //
-  const { data: reconnecting } = useQuery({
-    queryKey: ['controller_reconnecting'],
-    queryFn: async () =>
-      localStorage.getItem('lastUsedConnector') === controllerConnector.id &&
-      (await controllerConnector.ready().catch(() => false)),
-    staleTime: Number.POSITIVE_INFINITY,
-    retry: false,
-  });
-
-  const isConnected = status === 'connected';
-
   return {
-    account,
     address,
     username: username ?? undefined,
     isConnected,
     isConnecting: !isConnected && (isConnectPending || reconnecting !== false),
-    connect: () => connect({ connector: controllerConnector }),
-    disconnect: () => disconnect(),
+    connect: () => {
+      if (controller) connect({ connector: controller });
+      else refreshInjectedWallets(); // not discovered yet — scan again; the next click finds it
+    },
+    disconnect: () => {
+      writeLastWallet(null);
+      // The probe's cached `true` would otherwise read as "reconnecting" for the rest of the visit.
+      queryClient.setQueriesData({ queryKey: ['controller_reconnecting'] }, false);
+      disconnect();
+    },
     // Opens the Controller modal on one of its tabs.
     openController: (tab: ProfileContextTypeVariant = 'inventory') =>
-      controllerConnector.controller.openProfile(tab),
+      getControllerConnector()?.controller.openProfile(tab),
   };
 }
 

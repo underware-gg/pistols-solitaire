@@ -1,10 +1,14 @@
 'use client';
 
 import ControllerConnector from '@cartridge/connector/controller';
-import { cartridge, jsonRpcProvider, StarknetConfig } from '@starknet-react/core';
+import { createStore } from '@starknet-io/get-starknet-core';
+import { cartridge } from '@starknet-start/explorers';
+import { jsonRpcProvider } from '@starknet-start/providers';
+import { StarknetConfig } from '@starknet-start/react';
 import type { QueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { PROFILE } from '@/dojo/config';
+import { useControllerAutoConnect } from '@/hooks/use-controller';
 
 //
 // The chain layer: one Starknet network, connected through the Cartridge Controller.
@@ -14,20 +18,48 @@ import { PROFILE } from '@/dojo/config';
 //
 
 //
-// Created at module scope on purpose: the connector reuses `window.starknet_controller`
-// and warns when it is constructed more than once, so it must not live in a component.
-// Every `window` access inside it is guarded, so importing this module during SSR is safe.
+// The Controller is not handed to `StarknetConfig` — there is no `connectors` prop any more.
+// Constructing it registers it as a wallet-standard wallet named "Controller", and get-starknet
+// discovers it like any other wallet; `useController` picks it out of `useConnect().connectors`.
 //
-export const controllerConnector = new ControllerConnector({
-  chains: [{ rpcUrl: PROFILE.rpcUrl }],
-  defaultChainId: PROFILE.chainId,
-  // Cartridge preset: theme + policies published for the Pistols world. No `policies` of
-  // our own yet — those need a deployed Dojo world for this game.
-  preset: 'pistols',
-  namespace: PROFILE.namespace,
-  // Our own Torii indexer — backs the Controller's inventory/collection views.
-  toriiUrl: PROFILE.toriiUrl,
-});
+// Built once, on the client, from the provider's mount effect: it reuses `window.starknet_controller`
+// and warns when constructed twice, and its registration is a one-shot event, so it has to fire after
+// get-starknet's store is listening (that store is created when the module is imported, so any effect
+// is late enough). Kept here so `useController` can reach the Controller's own methods (username,
+// openProfile).
+//
+let _controllerConnector: ControllerConnector | undefined;
+
+export const getControllerConnector = (): ControllerConnector | undefined => {
+  if (!_controllerConnector && typeof window !== 'undefined') {
+    _controllerConnector = new ControllerConnector({
+      chains: [{ rpcUrl: PROFILE.rpcUrl }],
+      defaultChainId: PROFILE.chainId,
+      // Cartridge preset: theme + policies published for the Pistols world. No `policies` of
+      // our own yet — those need a deployed Dojo world for this game.
+      preset: 'pistols',
+      namespace: PROFILE.namespace,
+      // Our own Torii indexer — backs the Controller's inventory/collection views.
+      toriiUrl: PROFILE.toriiUrl,
+    });
+  }
+  return _controllerConnector;
+};
+
+//
+// Our own wallet-discovery store, handed to `StarknetConfig`. Injected wallets (`window.starknet_*`,
+// which includes `window.starknet_controller`) are found by one scan when a store is created, so a
+// wallet that appears after that is never listed. Owning the store lets us scan again: right after
+// the Controller is built, on window `load`, on a few timers for late extensions, and from Connect
+// when the Controller is still missing.
+//
+const walletStore = createStore();
+
+export const refreshInjectedWallets = (): void => {
+  try {
+    walletStore._refreshInjectedWallets();
+  } catch {}
+};
 
 const provider = jsonRpcProvider({ rpc: () => ({ nodeUrl: PROFILE.rpcUrl }) });
 
@@ -43,16 +75,34 @@ export function StarknetProvider({
   children: ReactNode;
   queryClient: QueryClient;
 }) {
+  useEffect(() => {
+    getControllerConnector();
+    refreshInjectedWallets();
+    const timers = [250, 1000, 3000].map(ms => setTimeout(refreshInjectedWallets, ms));
+    window.addEventListener('load', refreshInjectedWallets);
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+      window.removeEventListener('load', refreshInjectedWallets);
+    };
+  }, []);
+
   return (
     <StarknetConfig
-      autoConnect
       chains={[PROFILE.chain]}
-      connectors={[controllerConnector]}
+      defaultChainId={PROFILE.chain.id}
       explorer={cartridge}
       provider={provider}
       queryClient={queryClient}
+      store={walletStore}
     >
+      <ControllerAutoConnect />
       {children}
     </StarknetConfig>
   );
+}
+
+// `StarknetConfig autoConnect` is a no-op in @starknet-start; this is the one place that reconnects.
+function ControllerAutoConnect(): null {
+  useControllerAutoConnect();
+  return null;
 }

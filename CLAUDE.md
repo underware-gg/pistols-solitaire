@@ -21,7 +21,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 `CODING_STYLE.md` and `NEXTJS_DATA_FLOW.md` are ported from `/Users/roger/Dev/CC/ec-dapp/specs/` — read the originals when a rule needs context, keep the ports in sync, and never "fix" a difference marked **[diverges]**. The rest are ours alone.
 
-**Starknet only — ec-dapp gives us style, not its chain.** It is an EVM app; we take its coding style and data-flow conventions and nothing else. This project is Starknet (Cairo/Dojo, `@starknet-react/core`, Cartridge Controller, Torii). Never bring an EVM library, address type or ABI convention across.
+**Starknet only — ec-dapp gives us style, not its chain.** It is an EVM app; we take its coding style and data-flow conventions and nothing else. This project is Starknet (Cairo/Dojo, `@starknet-start/react`, Cartridge Controller, Torii). Never bring an EVM library, address type or ABI convention across.
 
 ## Repository state
 

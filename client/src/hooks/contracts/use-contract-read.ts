@@ -1,12 +1,12 @@
 'use client';
 
-import { useReadContract } from '@starknet-react/core';
+import { useReadContract } from '@starknet-start/react';
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { getPistolsContract, type PistolsContractName } from '@/dojo/contracts';
 
 //
-// One view call on one of the world's contracts, over `@starknet-react/core`'s `useReadContract`.
+// One view call on one of the world's contracts, over `@starknet-start/react`'s `useReadContract`.
 //
 // The chain hook is used bare, not cached on top of (specs/NEXTJS_DATA_FLOW.md §0) — this adds no
 // query layer, it only resolves the contract and carries the return type. `useReadContract` builds
@@ -54,7 +54,7 @@ export function useContractRead<T>({
 //
 // Refetch view calls after our own write changed what they answer.
 //
-// `useQueryInvalidate().invalidateKey` can't reach these: starknet-react keys a read as a single
+// `useQueryInvalidate().invalidateKey` can't reach these: starknet-start keys a read as a single
 // object (`[{ entity: 'readContract', contract, functionName, args, … }]`), so matching a key
 // *segment* never hits one. A predicate on that object is what does, and it is what makes
 // `invalidateContractReads('pack_token')` mean "every view call on the pack token is now stale".

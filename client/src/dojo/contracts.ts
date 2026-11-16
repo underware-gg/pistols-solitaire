@@ -61,7 +61,7 @@ export function getPistolsContract(name: PistolsContractName): PistolsContract {
 // `hooks/contracts/use-contract-read.ts` is how a component reads the chain; this is for the inside
 // of a write, where a value has to be current at the moment of the click rather than as of whenever
 // a query last settled — a mint fee that a cached read got wrong is an approval for the wrong amount.
-// The account doubles as the provider, so nothing extra has to be wired in to use it.
+// Takes the provider (`useProvider()`), so it needs no wallet.
 //
 export async function callPistolsContract<T>(
   providerOrAccount: ProviderInterface | AccountInterface,
