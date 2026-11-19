@@ -11,7 +11,8 @@ import { PROFILE } from '@/dojo/config';
 import { useControllerAutoConnect } from '@/hooks/use-controller';
 
 //
-// The chain layer: one Starknet network, connected through the Cartridge Controller.
+// The chain layer: one Starknet network, connected through the Cartridge Controller or any
+// injected Starknet wallet (Ready, Braavos).
 //
 // Which network is `PROFILE` (`@/dojo/config`) — mainnet by default, sepolia via
 // `NEXT_PUBLIC_PROFILE`. Nothing chain-dependent is hardcoded here.
@@ -20,7 +21,7 @@ import { useControllerAutoConnect } from '@/hooks/use-controller';
 //
 // The Controller is not handed to `StarknetConfig` — there is no `connectors` prop any more.
 // Constructing it registers it as a wallet-standard wallet named "Controller", and get-starknet
-// discovers it like any other wallet; `useController` picks it out of `useConnect().connectors`.
+// discovers it like any other wallet; `useController().wallets` lists it first.
 //
 // Built once, on the client, from the provider's mount effect: it reuses `window.starknet_controller`
 // and warns when constructed twice, and its registration is a one-shot event, so it has to fire after
@@ -50,8 +51,8 @@ export const getControllerConnector = (): ControllerConnector | undefined => {
 // Our own wallet-discovery store, handed to `StarknetConfig`. Injected wallets (`window.starknet_*`,
 // which includes `window.starknet_controller`) are found by one scan when a store is created, so a
 // wallet that appears after that is never listed. Owning the store lets us scan again: right after
-// the Controller is built, on window `load`, on a few timers for late extensions, and from Connect
-// when the Controller is still missing.
+// the Controller is built, on window `load`, on a few timers for late extensions, and when the
+// Connect picker opens.
 //
 const walletStore = createStore();
 

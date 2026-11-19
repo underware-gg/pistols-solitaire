@@ -8,7 +8,7 @@ import { useController } from '@/hooks/use-controller';
 import { cn } from '@/lib/cn';
 
 //
-// What the connected Controller owns, per game, straight off our Torii subscription.
+// What the connected account owns, per game, straight off our Torii subscription.
 // Scaffold-level readout: it is here to prove the indexer wiring, not as final UI.
 //
 

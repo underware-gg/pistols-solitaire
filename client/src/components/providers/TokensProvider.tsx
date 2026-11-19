@@ -9,7 +9,7 @@ import { getToriiClient } from '@/dojo/torii';
 import { useController } from '@/hooks/use-controller';
 
 //
-// Every token balance the connected Controller owns, live.
+// Every token balance the connected account owns, live.
 //
 // Cloned from /Users/roger/Dev/Realms/LORE/packages/client-sn/src/context/tokens-provider.tsx,
 // widened from that app's single ERC-721 to every token contract in the active profile
@@ -31,7 +31,7 @@ export type TokenBalances = {
 
 type TokensContextValue = {
   /**
-   * True until the balances are known: while the Controller is still reconnecting *and* while the
+   * True until the balances are known: while the wallet is still reconnecting *and* while the
    * first page is being fetched. Empty balances only mean "owns nothing" once this is false.
    */
   isLoading: boolean;
@@ -57,7 +57,7 @@ const byTokenId = (a: string, b: string): number => {
 export function TokensProvider({ children }: { children: ReactNode }) {
   //
   // Read through `useController` rather than `useAccount` so that a page load, which reconnects the
-  // last used Controller before it can say who the player is, counts as *loading* rather than as an
+  // last used wallet before it can say who the player is, counts as *loading* rather than as an
   // account holding nothing: `isLoading` is what tells the table it does not know the hand yet, and
   // a table that believes an empty hand deals every collection as an empty slot.
   //

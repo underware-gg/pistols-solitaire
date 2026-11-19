@@ -1,4 +1,4 @@
-import { ControllerButton } from '@/components/ControllerButton';
+import { AccountButton } from '@/components/AccountButton';
 import { HeaderMenu } from '@/components/HeaderMenu';
 import { cn } from '@/lib/cn';
 
@@ -9,7 +9,7 @@ export function Header({ className }: { className?: string }) {
   return (
     <header className={cn('flex items-center gap-2 px-6 py-4', className)}>
       <HeaderMenu />
-      <ControllerButton />
+      <AccountButton />
     </header>
   );
 }

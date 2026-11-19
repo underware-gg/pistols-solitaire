@@ -16,7 +16,7 @@ export function camelCase(value: string): string {
 // **Capitalizes in place; it does not re-spell.** Every separator survives and nothing is
 // lowercased — a word simply gets its first letter raised, wherever a word starts (the string, or
 // anything that is not a letter or a digit). Unlike `camelCase` this joins nothing together, which is
-// the point: its one call site is a player's Controller username (`ControllerButton`), and a name is
+// the point: its one call site is a player's Controller username (`AccountButton`), and a name is
 // displayed, not renamed — `some_user` reading as `SomeUser` is a different handle, and `McDonald`
 // must not come back as `Mcdonald`.
 //

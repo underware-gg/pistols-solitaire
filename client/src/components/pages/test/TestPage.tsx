@@ -5,7 +5,7 @@ import type { constants } from '@underware/pistols-sdk/pistols/gen';
 import { weiToEthString } from '@underware/pistols-sdk/starknet';
 import { isPositiveBigint, shortAddress } from '@underware/pistols-sdk/utils';
 import { useState } from 'react';
-import { ControllerButton } from '@/components/ControllerButton';
+import { AccountButton } from '@/components/AccountButton';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { PROFILE, PROFILE_NAME } from '@/dojo/config';
@@ -68,8 +68,8 @@ function AccountSection() {
   return (
     <Section title="account">
       <div className="flex flex-wrap items-center gap-3">
-        {/* Connecting is the header's `ControllerButton` — the bench only offers the way out. */}
-        <ControllerButton />
+        {/* Connecting is the header's `AccountButton` — the bench only offers the way out. */}
+        <AccountButton />
         {isConnected && (
           <Button variant="secondary" onClick={disconnect}>
             <LogOut className="size-4" />

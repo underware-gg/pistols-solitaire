@@ -11,7 +11,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 //
 // The header's hamburger — the home for actions that don't deserve a button of their own:
 // navigation, the settings, and disconnecting. Connecting is not one of them: the single way in is
-// the `ControllerButton` next to it, which is also where the connected account lives.
+// the `AccountButton` next to it, which is also where the connected account lives.
 //
 // "Switch table" cycles the felt colour and deliberately leaves the menu open — it is the
 // one item whose effect is visible behind the panel, so cycling to the table you want takes
